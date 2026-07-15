@@ -32,7 +32,7 @@ def test_person_outside_all_zones_returns_none():
 
 def test_first_matching_zone_wins():
     z1 = Zone("first", [(0, 0), (500, 0), (500, 500), (0, 500)], frozenset({"helmet"}))
-    z2 = Zone("second", [(0, 0), (500, 0), (500, 500), (0, 500)], frozenset({"gloves"}))
+    z2 = Zone("second", [(0, 0), (500, 0), (500, 500), (0, 500)], frozenset({"shoes"}))
     person = _person_at(250, 250)
     assert resolve_zone(person, [z1, z2]) is z1
 

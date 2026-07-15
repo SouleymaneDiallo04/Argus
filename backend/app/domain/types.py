@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 PPE_CLASSES: frozenset[str] = frozenset(
-    {"helmet", "safety-vest", "mask", "gloves", "glasses", "shoes"}
+    {"helmet", "safety-vest", "mask", "shoes"}
 )
 SUPPORT_CLASSES: frozenset[str] = frozenset({"person", "head", "face"})
 

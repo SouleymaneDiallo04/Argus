@@ -8,10 +8,8 @@ from app.domain.geometry import center, containment_ratio
 # Bande verticale attendue (fraction de la hauteur de la personne : 0 = haut, 1 = bas)
 BODY_BANDS: dict[str, tuple[float, float]] = {
     "helmet": (0.0, 0.30),
-    "glasses": (0.0, 0.30),
     "mask": (0.0, 0.35),
     "safety-vest": (0.20, 0.60),
-    "gloves": (0.30, 0.80),
     "shoes": (0.80, 1.0),
 }
 

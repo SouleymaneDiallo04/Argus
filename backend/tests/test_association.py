@@ -52,6 +52,6 @@ def test_ambiguous_ppe_falls_back_to_nearest_person():
     # gant loin de tout containment -> rattaché à la personne la plus proche
     p1 = person(1, 0, 0, 50, 200)
     p2 = person(2, 1000, 0, 1050, 200)
-    gloves = ppe("gloves", 60, 90, 80, 110)     # proche de p1, hors des deux boîtes
-    result = associate([p1, p2], [gloves])
-    assert result == {1: {"gloves"}}
+    mask = ppe("mask", 60, 90, 80, 110)         # proche de p1, hors des deux boîtes
+    result = associate([p1, p2], [mask])
+    assert result == {1: {"mask"}}
