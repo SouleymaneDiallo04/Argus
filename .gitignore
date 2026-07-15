@@ -1,0 +1,51 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+
+# ===== Node / Next.js =====
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ===== Modèles & poids (volumineux -> Releases / LFS) =====
+*.pt
+*.pth
+*.onnx
+*.engine
+*.weights
+
+# ===== Datasets & artefacts volumineux =====
+data/*
+!data/.gitkeep
+!data/**/*.py
+!data/**/*.md
+runs/
+wandb/
+
+# ===== Base de données & preuves générées =====
+*.sqlite
+*.sqlite3
+*.db
+snapshots/
+evidence/
+
+# ===== Secrets & environnement =====
+.env
+.env.*
+!.env.example
+
+# ===== OS / éditeurs =====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
