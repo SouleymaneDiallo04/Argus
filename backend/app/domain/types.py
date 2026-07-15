@@ -48,3 +48,13 @@ class Zone:
         object.__setattr__(
             self, "polygon", tuple(tuple(p) for p in self.polygon)
         )
+
+
+@dataclass(frozen=True)
+class ComplianceResult:
+    track_id: int
+    zone: str | None
+    required: frozenset[str]
+    present: frozenset[str]
+    missing: frozenset[str]
+    compliant: bool
