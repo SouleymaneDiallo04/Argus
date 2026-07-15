@@ -17,7 +17,7 @@ Les accidents du travail coûtent des vies, des arrêts de production, des prime
 ## 2. Objectifs & non-objectifs
 
 **Objectifs V1**
-- Détecter 6 EPI + personne, de façon robuste et honnêtement évaluée.
+- Détecter 4 EPI + personne, de façon robuste et honnêtement évaluée.
 - Associer chaque EPI à la bonne personne, évaluer la conformité selon des zones à règles.
 - Alerter en temps réel (dashboard + email/Telegram) avec anti-faux-positifs.
 - Conserver des preuves floutées (RGPD), produire des rapports HSE (PDF/CSV).
@@ -73,10 +73,12 @@ webcam / vidéo / RTSP
 
 ## 5. Classes détectées
 
-EPI : `helmet` (casque), `safety-vest` (gilet), `mask` (masque), `gloves` (gants), `glasses` (lunettes), `shoes` (chaussures/bottes).
+EPI (V1) : `helmet` (casque), `safety-vest` (gilet), `mask` (masque), `shoes` (chaussures/bottes).
 Support : `person`, `head`/`face` (association + floutage RGPD).
 
-**Caveat chaussures :** la vision confirme la présence de chaussures mais ne distingue pas des bottes *certifiées* de sécurité — documenté clairement.
+**Décision de périmètre (2026-07-15) :** `gloves` (gants) et `glasses` (lunettes) sont **exclus de la V1**. Raison : objets minuscules et déformables (pire précision rapportée dans la littérature, ex. SH17 où les gants ont la précision la plus faible) combinés à des données publiques rares — le coût d'obtenir un modèle honnête dépasse la valeur démonstrative. Réintroduction prévue en **V2** via la boucle d'active-learning (§6) avec annotation ciblée.
+
+**Caveat chaussures :** la vision confirme la présence de chaussures mais ne distingue pas des bottes *certifiées* de sécurité — documenté clairement. C'est la classe la plus difficile restante (bas d'image, occlusions) : attendre un mAP inférieur aux autres et le publier tel quel.
 
 ## 6. Données & robustesse
 
@@ -84,7 +86,7 @@ Support : `person`, `head`/`face` (association + floutage RGPD).
 
 **Test de généralisation honnête.** Set de test issu d'une source **différente** de l'entraînement (éval cross-dataset) + test sur une **vidéo propre** de l'auteur.
 
-**Déséquilibre des classes** (gants/lunettes/chaussures = petits objets rares) :
+**Déséquilibre des classes** (`shoes` = petit objet en bas d'image, sous-représenté vs casque/gilet) :
 - Échantillonnage équilibré (suréchantillonner images à classes rares).
 - Augmentation ciblée (copy-paste des classes rares, jitter éclairage/HSV, flou de mouvement, occlusions — Albumentations).
 - Résolution d'entrée plus haute pour petits objets.
@@ -144,9 +146,9 @@ argus/
 
 ## 12. Périmètre & roadmap (phases)
 
-**V1 (cette spec) :** détection 6 EPI robuste · tracking · zones/règles · conformité anti-faux-positifs · alertes dashboard+email/Telegram · preuves floutées RGPD · dashboard+rapports PDF · webcam/vidéo/1 RTSP · Docker.
+**V1 (cette spec) :** détection 4 EPI robuste · tracking · zones/règles · conformité anti-faux-positifs · alertes dashboard+email/Telegram · preuves floutées RGPD · dashboard+rapports PDF · webcam/vidéo/1 RTSP · Docker.
 
-**V2 :** multi-caméras simultanées · escalade d'alertes/sévérité · auth + rôles (admin/HSE) · plannings horaires des règles · politique de rétention/audit · API d'intégration/webhooks · tendances & KPIs avancés.
+**V2 :** réintroduction `gloves`/`glasses` via active-learning ciblé · multi-caméras simultanées · escalade d'alertes/sévérité · auth + rôles (admin/HSE) · plannings horaires des règles · politique de rétention/audit · API d'intégration/webhooks · tendances & KPIs avancés.
 
 **V3 :** re-identification inter-caméras · découverte ONVIF · edge (Jetson)/scalabilité GPU multi-flux · monitoring de drift + réentraînement automatique.
 
@@ -163,7 +165,7 @@ argus/
 
 | Risque | Mitigation |
 |---|---|
-| Précision faible sur gants/lunettes/chaussures | Augmentation ciblée, résolution ↑, active-learning P5, métriques par classe honnêtes |
+| Précision faible sur `shoes` (classe restante la plus dure) | Augmentation ciblée, résolution ↑, active-learning P5, métriques par classe honnêtes |
 | Faux positifs d'alertes | Debounce temporel + cooldown + tracking par ID |
 | Latence CPU insuffisante | YOLOv8n, échantillonnage des frames, ONNX Runtime |
 | Généralisation faible hors dataset | Fusion multi-datasets + test cross-dataset + vidéo propre |

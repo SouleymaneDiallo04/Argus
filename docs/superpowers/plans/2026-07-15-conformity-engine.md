@@ -12,6 +12,7 @@
 
 - Python ≥ 3.10. Chaque module commence par `from __future__ import annotations`.
 - Taxonomie EPI (exacte, verbatim) : `helmet`, `safety-vest`, `mask`, `gloves`, `glasses`, `shoes`. Classes support : `person`, `head`, `face`.
+- **⚠️ Amendement 2026-07-15 (décision produit, postérieure aux Tasks 1-3)** : `gloves` et `glasses` sont retirés de la V1 → taxonomie effective : `helmet`, `safety-vest`, `mask`, `shoes`. À répercuter dans le code : `PPE_CLASSES` (types.py), `BODY_BANDS` (association.py), et le test de la Task 3 qui utilise `gloves`. Les Tasks 4-6 n'utilisent que `helmet`/`safety-vest` : inchangées.
 - Le moteur est **pur** : pas d'I/O, pas d'horloge murale (les timestamps sont toujours passés en paramètre), pas de dépendance au modèle. Le floutage RGPD et les snapshots sont hors périmètre de ce plan (couche service).
 - Debounce : infraction confirmée après `confirm_seconds` d'anomalie **continue** (par `track_id`) ; effacée après `clear_seconds` de conformité continue ; `cooldown_seconds` empêche la ré-émission rapprochée. Valeurs par défaut : `confirm_seconds=3.0`, `clear_seconds=3.0`, `cooldown_seconds=30.0`.
 - Une personne **hors de toute zone** n'a aucun EPI requis → considérée conforme (documenté).

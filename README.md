@@ -12,7 +12,7 @@ Les accidents du travail coûtent des vies, des arrêts de production, des prime
 
 ## La solution (V1)
 
-- **Détection de 6 EPI** : casque, gilet, masque, gants, lunettes, chaussures (+ personne / tête).
+- **Détection de 4 EPI** : casque, gilet, masque, chaussures (+ personne / tête). *Gants et lunettes : reportés en V2 via active-learning — objets minuscules, données publiques rares (choix documenté dans la spec).*
 - **Suivi multi-personnes** (tracking) et **association EPI ↔ personne**.
 - **Zones à règles** : chaque zone impose ses EPI obligatoires.
 - **Conformité anti-faux-positifs** : confirmation temporelle avant toute alerte.
@@ -55,8 +55,8 @@ argus/
 
 ## Roadmap
 
-- **V1 (en cours)** — détection 6 EPI, tracking, zones, conformité, alertes, RGPD, dashboard, rapports, RTSP, Docker.
-- **V2** — multi-caméras, escalade d'alertes, auth/rôles, plannings de règles, API d'intégration.
+- **V1 (en cours)** — détection 4 EPI, tracking, zones, conformité, alertes, RGPD, dashboard, rapports, RTSP, Docker.
+- **V2** — gants & lunettes (active-learning), multi-caméras, escalade d'alertes, auth/rôles, plannings de règles, API d'intégration.
 - **V3** — re-identification inter-caméras, edge (Jetson), monitoring de drift & réentraînement.
 
 ## Rigueur & évaluation
