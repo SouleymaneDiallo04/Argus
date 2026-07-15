@@ -34,3 +34,10 @@ class Detection:
     bbox: BBox
     confidence: float
     track_id: int | None = None
+
+
+@dataclass(frozen=True)
+class Zone:
+    name: str
+    polygon: list[tuple[float, float]]
+    required_ppe: frozenset[str]
