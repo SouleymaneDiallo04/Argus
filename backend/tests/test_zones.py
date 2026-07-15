@@ -42,3 +42,9 @@ def test_uses_bottom_center_not_box_center():
     zone = Zone("floor", [(0, 350), (500, 350), (500, 500), (0, 500)], frozenset({"shoes"}))
     person = _person_at(250, 400)   # bottom-center y=400 -> dans la zone ; center y=250 -> hors
     assert resolve_zone(person, [zone]) is zone
+
+
+def test_zone_is_hashable():
+    z = Zone("A", [(0, 0), (300, 0), (300, 500), (0, 500)], frozenset({"helmet"}))
+    assert hash(z) == hash(z)
+    assert z in {z}

@@ -39,5 +39,12 @@ class Detection:
 @dataclass(frozen=True)
 class Zone:
     name: str
-    polygon: list[tuple[float, float]]
+    polygon: tuple[tuple[float, float], ...]
     required_ppe: frozenset[str]
+
+    def __post_init__(self) -> None:
+        # Coerce polygon to nested tuples so a frozen Zone is truly hashable,
+        # even when callers pass lists.
+        object.__setattr__(
+            self, "polygon", tuple(tuple(p) for p in self.polygon)
+        )
