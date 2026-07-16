@@ -6,7 +6,7 @@ from app.domain.compliance import evaluate
 
 def test_compliant_when_all_required_present():
     zone = Zone("A", [(0, 0), (1, 0), (1, 1), (0, 1)], frozenset({"helmet", "safety-vest"}))
-    res = evaluate(1, {"helmet", "safety-vest", "gloves"}, zone)
+    res = evaluate(1, {"helmet", "safety-vest", "shoes"}, zone)
     assert res.compliant is True
     assert res.missing == frozenset()
     assert res.zone == "A"

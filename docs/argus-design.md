@@ -99,7 +99,7 @@ Support : `person`, `head`/`face` (association + floutage RGPD).
 ## 7. Logique métier (testable en Python pur)
 
 - **Tracking** : ByteTrack (intégré Ultralytics) → IDs stables par personne.
-- **Association EPI↔personne** : rattachement par géométrie (contenu / IoU dans la boîte personne) + a priori corporels (casque↔tête, lunettes/masque↔visage, gilet↔torse, gants↔mains, chaussures↔bas). Cas ambigus → personne la plus proche.
+- **Association EPI↔personne** : rattachement par géométrie (contenu / IoU dans la boîte personne) + a priori corporels (casque↔tête, masque↔visage, gilet↔torse, chaussures↔bas). Cas ambigus → personne la plus proche.
 - **Appartenance à une zone** : point au sol = bas-centre de la boîte personne → test point-dans-polygone. La personne hérite des EPI requis de sa zone.
 - **Conformité** : par personne → tous les EPI requis présents ? sinon `non-conforme` + liste des manquants.
 - **Debounce temporel (anti-faux-positifs)** : infraction confirmée seulement après N secondes d'anomalie continue (par ID) ; effacée après M secondes de conformité ; **cooldown** pour éviter le spam.
