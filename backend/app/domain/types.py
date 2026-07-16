@@ -67,3 +67,9 @@ class ViolationEvent:
     missing: frozenset[str]
     timestamp: float
     camera: str
+
+
+@dataclass(frozen=True)
+class FrameResult:
+    results: list[ComplianceResult]
+    events: list[ViolationEvent]
