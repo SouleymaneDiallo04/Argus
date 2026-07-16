@@ -58,3 +58,12 @@ class ComplianceResult:
     present: frozenset[str]
     missing: frozenset[str]
     compliant: bool
+
+
+@dataclass(frozen=True)
+class ViolationEvent:
+    track_id: int
+    zone: str | None
+    missing: frozenset[str]
+    timestamp: float
+    camera: str
