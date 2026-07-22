@@ -1,0 +1,108 @@
+# ============================================================
+# Argus V1 — Schéma d'harmonisation des labels
+# ============================================================
+# Rôle : traduire les classes hétérogènes des datasets sources
+# vers la taxonomie unifiée d'Argus.
+#
+# Le mapping est basé sur les NOMS de classe, pas sur les IDs
+# entiers : les IDs changent d'une version de dataset à l'autre
+# (surtout sur Roboflow), les noms sont stables. Le script data/
+# lit le `data.yaml` de chaque dataset (id -> nom), applique cette
+# table, puis réécrit les .txt YOLO avec les IDs Argus ci-dessous.
+#
+# 3 opérations possibles par classe source :
+#   - renommer  : person   -> person
+#   - fusionner : blue/yellow/white/red -> helmet
+#   - jeter     : NO-Hardhat -> drop   (la ligne est supprimée)
+#
+# ⚠️ Les noms exacts sont à CONFIRMER sur le data.yaml réel au
+#    téléchargement — voir les notes ⚠️ par dataset.
+
+# ---- Taxonomie cible : IDs FIXES d'Argus ----
+argus_classes:
+  0: person
+  1: helmet
+  2: safety-vest
+  3: mask
+  4: shoes
+
+# ---- Datasets sources ----
+datasets:
+
+  sh17:
+    # 17 classes. SEULE source qui annote shoes ET mask nativement.
+    # Sert aussi de base au modèle v0 pour le pseudo-labeling.
+    role: train
+    holdout: false
+    map:
+      person: person
+      helmet: helmet
+      safety-vest: safety-vest
+      face-mask: mask
+      shoes: shoes
+      # --- jetés (hors taxonomie V1) ---
+      head: drop
+      face: drop
+      glasses: drop
+      gloves: drop
+      hands: drop
+      foot: drop
+      ear: drop
+      ear-mufs: drop
+      face-guard: drop
+      medical-suit: drop
+      safety-suit: drop
+      tool: drop
+
+  chv:
+    # ~1330 images. Casques en 4 couleurs -> fusion vers helmet.
+    # N'annote NI mask NI shoes -> pseudo-label requis.
+    role: train
+    holdout: false
+    map:
+      blue: helmet       # ⚠️ confirmer le nom exact (blue / blue_helmet)
+      yellow: helmet
+      white: helmet
+      red: helmet
+      person: person
+      vest: safety-vest
+    pseudo_label: [mask, shoes]   # prédits par v0, corrigés sur échantillon
+
+  pictor:
+    # Pictor-v3 (~1500 images).
+    # ⚠️ CRITIQUE : Pictor a plusieurs variantes d'annotation.
+    #    Il faut la variante "objets séparés" (worker / hat / vest
+    #    en boîtes distinctes). La variante "combinée" (W / WH / WV
+    #    / WHV) encode l'EPI DANS la classe du worker et ne fournit
+    #    pas de boîtes helmet/vest séparées -> inutilisable telle
+    #    quelle. À vérifier au téléchargement ; sinon Pictor est
+    #    reporté (ou réduit à la seule classe person).
+    role: train
+    holdout: false
+    map:
+      worker: person     # ⚠️ à confirmer
+      hat: helmet
+      vest: safety-vest
+    pseudo_label: [mask, shoes]
+
+  css-data:
+    # HOLDOUT cross-dataset : JAMAIS en entraînement, JAMAIS
+    # pseudo-labellisé. Remappé UNIQUEMENT pour l'évaluation avec
+    # la taxonomie Argus.
+    # Permet l'éval hors-domaine de : helmet, safety-vest, mask, person.
+    # (shoes n'est dans aucune autre source -> pas d'éval cross-dataset
+    #  possible pour shoes : éval intra-SH17 seulement, à documenter.)
+    role: holdout
+    holdout: true
+    map:
+      Hardhat: helmet
+      Person: person
+      Safety Vest: safety-vest
+      Mask: mask
+      # --- jetés ---
+      NO-Hardhat: drop         # l'absence est inférée par le moteur, pas détectée
+      NO-Mask: drop
+      NO-Safety Vest: drop
+      Safety Cone: drop
+      machinery: drop
+      vehicle: drop

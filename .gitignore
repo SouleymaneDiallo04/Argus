@@ -29,6 +29,9 @@ data/*
 !data/.gitkeep
 !data/**/*.py
 !data/**/*.md
+# configs d'harmonisation à la racine de data/ (pas les data.yaml des datasets en sous-dossiers)
+!data/*.yaml
+!data/*.yml
 runs/
 wandb/
 
