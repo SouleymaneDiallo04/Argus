@@ -86,6 +86,8 @@ Support : `person`, `head`/`face` (association + floutage RGPD).
 
 **Test de généralisation honnête.** Set de test issu d'une source **différente** de l'entraînement (éval cross-dataset) + test sur une **vidéo propre** de l'auteur.
 
+**Le domain gap est le vrai adversaire.** Un modèle entraîné sur images publiques « propres » (bien cadrées, éclairées, objets proches) voit ses perfs **chuter fortement** sur des images de chantier réelles (caméra lointaine/plongeante, basse résolution, contre-jour, poussière, occlusions, petits objets) — même tâche, distribution différente. Des déploiements industriels comparables mesurent des chutes nettes entre baseline « propre » et données terrain. Conséquence assumée : cette chute **doit être mesurée et publiée** (via le cross-dataset + la vidéo propre), pas masquée. Deux leviers réduisent le gap : élargir le domaine source (fusion multi-datasets) et soigner les **conditions de captation** de la vidéo de test (voir §16).
+
 **Déséquilibre des classes** (`shoes` = petit objet en bas d'image, sous-représenté vs casque/gilet) :
 - Échantillonnage équilibré (suréchantillonner images à classes rares).
 - Augmentation ciblée (copy-paste des classes rares, jitter éclairage/HSV, flou de mouvement, occlusions — Albumentations).
@@ -109,6 +111,8 @@ Support : `person`, `head`/`face` (association + floutage RGPD).
 ## 8. Évaluation (ce qui impressionne)
 
 **Modèle :** mAP@50 et mAP@50-95 **par classe**, courbes PR, matrice de confusion, **test cross-dataset**, test sur vidéo propre, galerie de cas d'échec. Rapport d'évaluation + notebook.
+
+> **Attendu (honnêteté) :** un écart net entre le score sur données publiques et le score cross-dataset/terrain est *normal* — c'est le domain gap (§6). Le livrable qui impressionne, c'est de le **chiffrer par classe et l'expliquer**, pas un mAP global lissé. Toujours **nommer et versionner** chaque dataset source (URL, version, licence) pour la reproductibilité.
 
 **Logique métier :** tests unitaires **pytest** (association, appartenance aux zones, conformité, machine à états du debounce) — fonctions déterministes, sans le modèle.
 
@@ -148,7 +152,7 @@ argus/
 
 **V1 (cette spec) :** détection 4 EPI robuste · tracking · zones/règles · conformité anti-faux-positifs · alertes dashboard+email/Telegram · preuves floutées RGPD · dashboard+rapports PDF · webcam/vidéo/1 RTSP · Docker.
 
-**V2 :** réintroduction `gloves`/`glasses` via active-learning ciblé · multi-caméras simultanées · escalade d'alertes/sévérité · auth + rôles (admin/HSE) · plannings horaires des règles · politique de rétention/audit · API d'intégration/webhooks · tendances & KPIs avancés.
+**V2 :** réintroduction `gloves`/`glasses` via active-learning ciblé · **escalade optionnelle vers un VLM** (analyse contextuelle des cas critiques uniquement — « EPI mal porté » vs « présent », explication en langage naturel ; file d'attente + quota pour maîtriser le coût) · multi-caméras simultanées · escalade d'alertes/sévérité · auth + rôles (admin/HSE) · plannings horaires des règles · politique de rétention/audit · API d'intégration/webhooks · tendances & KPIs avancés.
 
 **V3 :** re-identification inter-caméras · découverte ONVIF · edge (Jetson)/scalabilité GPU multi-flux · monitoring de drift + réentraînement automatique.
 
@@ -178,3 +182,16 @@ argus/
 - Tests unitaires verts sur la logique métier.
 - Démo reproductible (Docker) + vidéo de 90 s.
 - `DECISIONS.md` justifiant les choix.
+
+## 16. Conditions de captation recommandées (déploiement & vidéo de test)
+
+Les performances terrain dépendent **autant de la captation que du modèle** : une caméra mal placée dégrade un excellent modèle. Ces règles réduisent directement le domain gap (§6) et s'appliquent d'abord à la **vidéo propre** de test (§8), puis au déploiement V2/V3.
+
+- **Distance** : ≤ ~3,5 m de la zone surveillée. Au-delà, l'EPI occupe trop peu de pixels pour être fiable.
+- **Angle & hauteur** : angle de vue ≤ ~50° par rapport à la zone ; éviter la plongée quasi-verticale (déforme, cache le torse et la tête).
+- **Cadrage** : viser un cadrage **taille → tête** pour que casque (tête) et gilet (torse) soient pleinement visibles.
+- **Éclairage** : lumière homogène et suffisante ; éviter les contre-jours et les ombres dures (nuisent au casque et aux couleurs haute visibilité).
+- **Champ dégagé** : vérifier l'absence d'obstructions du haut du corps (échafaudages, tuyauteries, clôtures, panneaux).
+- **Positionnement stratégique** : privilégier les points d'entrée, zones à forte activité et emplacements à risque de non-conformité.
+
+**Note d'architecture (référence service, hors V1) :** le chemin de déploiement industriel typique — RTSP → inférence edge (ex. Jetson) → backend → dashboard + alertes → stockage objet des preuves — recoupe l'architecture d'Argus (§4). Le tracking (amont) et le floutage RGPD (aval) restent dans la couche service, pas dans le moteur pur.
