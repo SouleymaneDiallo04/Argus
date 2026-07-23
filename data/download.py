@@ -25,9 +25,10 @@ from pathlib import Path
 
 RAW = Path("data/raw")
 
-# ⚠️ Numéros de version Roboflow à confirmer sur la page du dataset (ils changent).
-CSS_DATA_VERSION = 1     # roboflow-universe-projects/construction-site-safety
-PICTOR_VERSION = 9       # ppe-orxtt/ppe-u7jtr  (variante "Pictor-v3-revised", YOLO)
+# Numéros de version Roboflow — à lire sur la page "Download Dataset". Surchargeables
+# par variables d'env (pas besoin d'éditer ce fichier sur Colab).
+CSS_DATA_VERSION = int(os.environ.get("CSS_DATA_VERSION", "1"))   # roboflow-universe-projects/construction-site-safety
+PICTOR_VERSION = int(os.environ.get("PICTOR_VERSION", "9"))       # ppe-orxtt/ppe-u7jtr ("Pictor-v3-revised")
 
 
 def _roboflow(workspace: str, project: str, version: int, out: str) -> None:
