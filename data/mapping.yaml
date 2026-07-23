@@ -89,23 +89,28 @@ datasets:
     pseudo_label: [mask, shoes]
 
   css-data:
-    # HOLDOUT cross-dataset : JAMAIS en entraînement, JAMAIS
-    # pseudo-labellisé. Remappé UNIQUEMENT pour l'évaluation avec
-    # la taxonomie Argus.
+    # HOLDOUT cross-dataset : JAMAIS en entraînement, JAMAIS pseudo-labellisé.
+    # Version Roboflow v30 CONFIRMÉE : 25 classes (data.yaml). On en garde 4.
+    # Structure Roboflow : train/ valid/ test/, labels dans <split>/labels/.
     # Permet l'éval hors-domaine de : helmet, safety-vest, mask, person.
-    # (shoes n'est dans aucune autre source -> pas d'éval cross-dataset
-    #  possible pour shoes : éval intra-SH17 seulement, à documenter.)
+    # (shoes n'est dans aucune autre source -> éval intra-SH17 seulement.)
     role: holdout
     holdout: true
     map:
+      # --- gardés (noms exacts confirmés sur le data.yaml v30) ---
       Hardhat: helmet
-      Person: person
       Safety Vest: safety-vest
       Mask: mask
-      # --- jetés ---
+      Person: person
+      # --- jetés explicitement (le reste des 25 -> drop auto par défaut sûr) ---
+      Gloves: drop
       NO-Hardhat: drop         # l'absence est inférée par le moteur, pas détectée
       NO-Mask: drop
       NO-Safety Vest: drop
       Safety Cone: drop
+      Ladder: drop
+      Excavator: drop
       machinery: drop
       vehicle: drop
+      # (+ SUV, bus, dump truck, fire hydrant, mini-van, sedan, semi, trailer,
+      #  truck, truck and trailer, van, wheel loader -> drop automatique)
