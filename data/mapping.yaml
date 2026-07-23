@@ -32,35 +32,40 @@ datasets:
   sh17:
     # 17 classes. SEULE source qui annote shoes ET mask nativement.
     # Sert aussi de base au modèle v0 pour le pseudo-labeling.
+    # Source : Kaggle `mugheesahmad/sh17-dataset-for-ppe-detection` (format YOLO).
+    # Noms CONFIRMÉS depuis le repo officiel (vérifier la casse sur le data.yaml).
     role: train
     holdout: false
     map:
-      person: person
-      helmet: helmet
-      safety-vest: safety-vest
-      face-mask: mask
-      shoes: shoes
+      Person: person
+      Helmet: helmet
+      Safety-vest: safety-vest
+      Face-mask-medical: mask
+      Shoes: shoes
       # --- jetés (hors taxonomie V1) ---
-      head: drop
-      face: drop
-      glasses: drop
-      gloves: drop
-      hands: drop
-      foot: drop
-      ear: drop
-      ear-mufs: drop
-      face-guard: drop
-      medical-suit: drop
-      safety-suit: drop
-      tool: drop
+      Head: drop
+      Face: drop
+      Glasses: drop
+      Face-guard: drop
+      Ear: drop
+      Earmuffs: drop
+      Hands: drop
+      Gloves: drop
+      Foot: drop
+      Tools: drop
+      Medical-suit: drop
+      Safety-suit: drop
 
   chv:
-    # ~1330 images. Casques en 4 couleurs -> fusion vers helmet.
+    # CONFIRMÉ : dataset CHV (1330 img — person + vest + casques 4 couleurs).
+    # Source : repo GitHub ZijianWang-ZW/PPE_detection -> données sur Google Drive/Baidu.
+    # ⚠️ Noms de classe exacts + format à LIRE dans son data.yaml au download
+    #    (peut être en VOC/XML -> convertir en YOLO avant remap).
     # N'annote NI mask NI shoes -> pseudo-label requis.
     role: train
     holdout: false
     map:
-      blue: helmet       # ⚠️ confirmer le nom exact (blue / blue_helmet)
+      blue: helmet       # ⚠️ noms exacts à confirmer sur le data.yaml
       yellow: helmet
       white: helmet
       red: helmet
@@ -69,20 +74,17 @@ datasets:
     pseudo_label: [mask, shoes]   # prédits par v0, corrigés sur échantillon
 
   pictor:
-    # Pictor-v3 (~1500 images).
-    # ⚠️ CRITIQUE : Pictor a plusieurs variantes d'annotation.
-    #    Il faut la variante "objets séparés" (worker / hat / vest
-    #    en boîtes distinctes). La variante "combinée" (W / WH / WV
-    #    / WHV) encode l'EPI DANS la classe du worker et ne fournit
-    #    pas de boîtes helmet/vest séparées -> inutilisable telle
-    #    quelle. À vérifier au téléchargement ; sinon Pictor est
-    #    reporté (ou réduit à la seule classe person).
+    # Pictor-v3 (1472 images). CONFIRMÉ : le jeu d'annotation "objets séparés"
+    # (Approche A1 : Worker / Hat / Vest en boîtes distinctes) existe -> utilisable.
+    # NE PAS prendre la variante combinée (W / WH / WV / WHV) qui encode l'EPI dans
+    # la classe du worker. La version Roboflow "Pictor-v3-revised" (ppe-orxtt/ppe-u7jtr)
+    # fournit les boîtes séparées ; confirmer les noms/casse sur son data.yaml.
     role: train
     holdout: false
     map:
-      worker: person     # ⚠️ à confirmer
-      hat: helmet
-      vest: safety-vest
+      Worker: person
+      Hat: helmet
+      Vest: safety-vest
     pseudo_label: [mask, shoes]
 
   css-data:
