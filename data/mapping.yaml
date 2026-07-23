@@ -75,17 +75,19 @@ datasets:
     pseudo_label: [mask, shoes]   # prédits par v0, corrigés sur échantillon
 
   pictor:
-    # Pictor-v3 (1472 images). CONFIRMÉ : le jeu d'annotation "objets séparés"
-    # (Approche A1 : Worker / Hat / Vest en boîtes distinctes) existe -> utilisable.
-    # NE PAS prendre la variante combinée (W / WH / WV / WHV) qui encode l'EPI dans
-    # la classe du worker. La version Roboflow "Pictor-v3-revised" (ppe-orxtt/ppe-u7jtr)
-    # fournit les boîtes séparées ; confirmer les noms/casse sur son data.yaml.
+    # Pictor-v3 Approche A1 (worker/hat/vest séparés).
+    # Source : GitHub officiel ciber-lab/pictor-ppe -> Google Drive (Images/ + Labels/,
+    #   fichiers `..._approach-01_{train,valid,test}.txt`).
+    # ⚠️ La version Roboflow ppe-orxtt/ppe-u7jtr était la variante COMBINÉE
+    #    (W/WH/WV/WHV) -> inutilisable, écartée.
+    # Format source = keras-yolo3 consolidé -> converti en YOLO par data/convert_pictor.py.
+    # Classes A1 : 0=hat, 1=vest, 2=worker (ordre déduit géométriquement, à confirmer à l'EDA).
     role: train
     holdout: false
     map:
-      Worker: person
-      Hat: helmet
-      Vest: safety-vest
+      hat: helmet
+      vest: safety-vest
+      worker: person
     pseudo_label: [mask, shoes]
 
   css-data:
