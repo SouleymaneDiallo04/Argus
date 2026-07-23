@@ -71,7 +71,7 @@ def download() -> None:
         sh(f"gdown {CHV_ZIP_ID} -O data/raw/chv.zip")
         sh("unzip -q data/raw/chv.zip -d data/raw/chv")
     if not exists("data/raw/pictor/labels_raw"):
-        sh(f'gdown --folder "{PICTOR_LABELS_FOLDER}" -O data/raw/pictor/labels_raw --remaining-ok')
+        sh(f'gdown --folder "{PICTOR_LABELS_FOLDER}" -O data/raw/pictor/labels_raw')
     if not exists("data/raw/pictor/images"):
         sh(f'cp -r "{PICTOR_IMAGES_SRC}" data/raw/pictor/images')
 
