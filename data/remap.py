@@ -36,3 +36,42 @@ def remap_label_lines(
         argus_id = argus_name_to_id[argus_name]
         out.append(" ".join([str(argus_id), *parts[1:]]))
     return out
+
+
+def build_lookups(
+    mapping: dict,
+    dataset_key: str,
+    dataset_names,
+) -> tuple[dict[int, str], dict[str, str], dict[str, int]]:
+    """Construit les 3 tables de correspondance à partir du mapping.yaml chargé
+    et des noms de classe du dataset (champ `names` de son data.yaml).
+
+    `dataset_names` peut être une liste (l'index vaut l'ID) ou un dict {id: nom} —
+    les deux formes existent selon les datasets.
+    """
+    argus_name_to_id = {name: cid for cid, name in mapping["argus_classes"].items()}
+    class_map = mapping["datasets"][dataset_key]["map"]
+    if isinstance(dataset_names, dict):
+        src_id_to_name = {int(k): v for k, v in dataset_names.items()}
+    else:
+        src_id_to_name = {i: name for i, name in enumerate(dataset_names)}
+    return src_id_to_name, class_map, argus_name_to_id
+
+
+def remap_label_file(
+    in_path,
+    out_path,
+    src_id_to_name: dict[int, str],
+    class_map: dict[str, str],
+    argus_name_to_id: dict[str, int],
+) -> int:
+    """Lit un .txt YOLO, applique le remap, écrit le résultat, renvoie le nombre
+    de boîtes conservées. Un fichier vide (toutes les boîtes jetées) est une image
+    négative valide — on l'écrit quand même."""
+    from pathlib import Path
+
+    lines = Path(in_path).read_text(encoding="utf-8").splitlines()
+    remapped = remap_label_lines(lines, src_id_to_name, class_map, argus_name_to_id)
+    text = "\n".join(remapped) + ("\n" if remapped else "")
+    Path(out_path).write_text(text, encoding="utf-8")
+    return len(remapped)

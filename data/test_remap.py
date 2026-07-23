@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from remap import remap_label_lines
+from remap import build_lookups, remap_label_file, remap_label_lines
 
 # Table {classe Argus -> ID fixe}, partagée par les tests (cf. mapping.yaml).
 ARGUS_NAME_TO_ID = {
@@ -61,3 +61,52 @@ def test_blank_lines_are_ignored():
     cmap = {"Hardhat": "helmet"}
     lines = ["", "   ", "0 0.5 0.5 0.2 0.2"]
     assert remap_label_lines(lines, src_names, cmap, ARGUS_NAME_TO_ID) == ["1 0.5 0.5 0.2 0.2"]
+
+
+def test_build_lookups_from_list_names():
+    # data.yaml où `names` est une LISTE : l'index vaut l'ID.
+    mapping = {
+        "argus_classes": {0: "person", 1: "helmet", 2: "safety-vest", 3: "mask", 4: "shoes"},
+        "datasets": {"chv": {"map": {"blue": "helmet", "person": "person", "vest": "safety-vest"}}},
+    }
+    names = ["blue", "yellow", "white", "red", "person", "vest"]
+    src, cmap, a2i = build_lookups(mapping, "chv", names)
+    assert src[0] == "blue" and src[4] == "person"
+    assert cmap["blue"] == "helmet"
+    assert a2i["helmet"] == 1
+
+
+def test_build_lookups_from_dict_names():
+    # data.yaml où `names` est un DICT {id: nom}.
+    mapping = {
+        "argus_classes": {0: "person", 1: "helmet"},
+        "datasets": {"x": {"map": {"Hardhat": "helmet"}}},
+    }
+    src, cmap, a2i = build_lookups(mapping, "x", {0: "Person", 1: "Hardhat"})
+    assert src[1] == "Hardhat"
+    assert a2i["helmet"] == 1
+
+
+def test_remap_label_file_roundtrip(tmp_path):
+    src_names = {0: "blue", 4: "person"}
+    cmap = {"blue": "helmet", "person": "person"}
+    a2i = {"person": 0, "helmet": 1}
+    inp = tmp_path / "img1.txt"
+    inp.write_text("0 0.5 0.3 0.1 0.1\n4 0.5 0.6 0.2 0.4\n", encoding="utf-8")
+    outp = tmp_path / "out1.txt"
+    kept = remap_label_file(inp, outp, src_names, cmap, a2i)
+    assert kept == 2
+    assert outp.read_text(encoding="utf-8").splitlines() == ["1 0.5 0.3 0.1 0.1", "0 0.5 0.6 0.2 0.4"]
+
+
+def test_remap_label_file_all_dropped_writes_empty(tmp_path):
+    # Toutes les boîtes jetées -> fichier vide (image négative valide, pas d'erreur).
+    src_names = {2: "NO-Hardhat"}
+    cmap = {"NO-Hardhat": "drop"}
+    a2i = {"helmet": 1}
+    inp = tmp_path / "img2.txt"
+    inp.write_text("2 0.5 0.5 0.2 0.2\n", encoding="utf-8")
+    outp = tmp_path / "out2.txt"
+    kept = remap_label_file(inp, outp, src_names, cmap, a2i)
+    assert kept == 0
+    assert outp.read_text(encoding="utf-8") == ""
