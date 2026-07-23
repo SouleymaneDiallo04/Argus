@@ -56,9 +56,31 @@ def _write_yaml(path, root, class_names):
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def fuse(sources, out_dir, class_names, val_frac: float = 0.1, seed: int = 42):
+def _resize_to(src, dst, max_side: int) -> None:
+    """Sauve une copie de `src` dont le plus grand côté <= max_side (fichier réel).
+    Les labels YOLO étant normalisés, ils restent valides. Décode fallback -> copie."""
+    import shutil
+
+    from PIL import Image
+
+    try:
+        with Image.open(src) as im:
+            im = im.convert("RGB")
+            w, h = im.size
+            scale = max_side / max(w, h)
+            if scale < 1:
+                im = im.resize((round(w * scale), round(h * scale)), Image.BILINEAR)
+            im.save(dst, quality=90)
+    except Exception:
+        shutil.copy(src, dst)
+
+
+def fuse(sources, out_dir, class_names, val_frac: float = 0.1, seed: int = 42, max_side=None):
     """Fusionne les sources en un dataset YOLO train/val + data.yaml.
-    Images en lien symbolique (rapide, sans copie), labels copiés. Renvoie les stats."""
+
+    Si `max_side` est donné (ex. 1024), les images sont redimensionnées (fichiers
+    réels) -> décodage rapide à l'entraînement. Sinon lien symbolique (rapide, sans
+    copie). Labels toujours copiés (normalisés -> inchangés par le redimensionnement)."""
     import os
     import shutil
 
@@ -71,7 +93,9 @@ def fuse(sources, out_dir, class_names, val_frac: float = 0.1, seed: int = 42):
             base = f"{prefix}_{img.stem}"
             dst_img = out / split_name / "images" / f"{base}{img.suffix}"
             dst_lbl = out / split_name / "labels" / f"{base}.txt"
-            if not dst_img.exists():
+            if max_side:
+                _resize_to(img, dst_img, max_side)
+            elif not dst_img.exists():
                 try:
                     os.symlink(img.resolve(), dst_img)
                 except (OSError, NotImplementedError):

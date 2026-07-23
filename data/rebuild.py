@@ -99,7 +99,7 @@ def main() -> None:
         ("data/unified/chv/annotations", "data/raw/chv/CHV_dataset/images", "chv"),
         ("data/unified/pictor/labels", "data/raw/pictor/images", "pictor"),
     ]
-    print("FUSION", fuse(sources, "data/unified/train_set", ARGUS))
+    print("FUSION", fuse(sources, "data/unified/train_set", ARGUS, max_side=1024))
 
 
 if __name__ == "__main__":
