@@ -75,31 +75,47 @@ def _resize_to(src, dst, max_side: int) -> None:
         shutil.copy(src, dst)
 
 
-def fuse(sources, out_dir, class_names, val_frac: float = 0.1, seed: int = 42, max_side=None):
+def fuse(sources, out_dir, class_names, val_frac: float = 0.1, seed: int = 42,
+         max_side=None, workers: int = 8):
     """Fusionne les sources en un dataset YOLO train/val + data.yaml.
 
     Si `max_side` est donné (ex. 1024), les images sont redimensionnées (fichiers
-    réels) -> décodage rapide à l'entraînement. Sinon lien symbolique (rapide, sans
-    copie). Labels toujours copiés (normalisés -> inchangés par le redimensionnement)."""
+    réels) en PARALLÈLE, avec progression affichée -> décodage rapide à l'entraînement.
+    Sinon lien symbolique (rapide, sans copie). Labels copiés (normalisés -> inchangés)."""
     import os
     import shutil
+    from concurrent.futures import ThreadPoolExecutor
 
     out = Path(out_dir)
     train, val = split_pairs(collect_pairs(sources), val_frac, seed)
+    resize_tasks = []
     for split_name, split in (("train", train), ("val", val)):
         (out / split_name / "images").mkdir(parents=True, exist_ok=True)
         (out / split_name / "labels").mkdir(parents=True, exist_ok=True)
         for label, img, prefix in split:
             base = f"{prefix}_{img.stem}"
             dst_img = out / split_name / "images" / f"{base}{img.suffix}"
-            dst_lbl = out / split_name / "labels" / f"{base}.txt"
+            shutil.copy(label, out / split_name / "labels" / f"{base}.txt")
             if max_side:
-                _resize_to(img, dst_img, max_side)
+                resize_tasks.append((img, dst_img))
             elif not dst_img.exists():
                 try:
                     os.symlink(img.resolve(), dst_img)
                 except (OSError, NotImplementedError):
                     shutil.copy(img, dst_img)
-            shutil.copy(label, dst_lbl)
+
+    if resize_tasks:
+        total = len(resize_tasks)
+        done = [0]
+
+        def _work(task):
+            _resize_to(task[0], task[1], max_side)
+            done[0] += 1
+            if done[0] % 500 == 0 or done[0] == total:
+                print(f"  redimensionnement {done[0]}/{total}", flush=True)
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            list(pool.map(_work, resize_tasks))
+
     _write_yaml(out / "data.yaml", out.resolve(), class_names)
     return {"total": len(train) + len(val), "train": len(train), "val": len(val)}
