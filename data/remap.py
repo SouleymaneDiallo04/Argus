@@ -75,3 +75,37 @@ def remap_label_file(
     text = "\n".join(remapped) + ("\n" if remapped else "")
     Path(out_path).write_text(text, encoding="utf-8")
     return len(remapped)
+
+
+def remap_dataset(
+    src_dir,
+    out_dir,
+    dataset_key: str,
+    mapping: dict,
+    dataset_names,
+    labels_subdir: str = "labels",
+) -> dict[str, int]:
+    """Remappe TOUS les .txt d'un dataset vers la taxonomie Argus.
+
+    Parcourt `src_dir/<labels_subdir>/**/*.txt`, réécrit chaque fichier sous
+    `out_dir/...` (structure préservée). Renvoie des stats {files, kept, dropped}
+    pour l'EDA. Les coordonnées ne changent pas ; seules les classes sont remappées.
+    """
+    from pathlib import Path
+
+    src, out = Path(src_dir), Path(out_dir)
+    src_id_to_name, class_map, argus_name_to_id = build_lookups(
+        mapping, dataset_key, dataset_names
+    )
+    files = kept = dropped = 0
+    for txt in sorted((src / labels_subdir).rglob("*.txt")):
+        lines = txt.read_text(encoding="utf-8").splitlines()
+        n_before = sum(1 for line in lines if line.split())
+        remapped = remap_label_lines(lines, src_id_to_name, class_map, argus_name_to_id)
+        dest = out / txt.relative_to(src)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text("\n".join(remapped) + ("\n" if remapped else ""), encoding="utf-8")
+        files += 1
+        kept += len(remapped)
+        dropped += n_before - len(remapped)
+    return {"files": files, "kept": kept, "dropped": dropped}

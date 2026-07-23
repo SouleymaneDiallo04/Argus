@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from remap import build_lookups, remap_label_file, remap_label_lines
+from remap import build_lookups, remap_dataset, remap_label_file, remap_label_lines
 
 # Table {classe Argus -> ID fixe}, partagée par les tests (cf. mapping.yaml).
 ARGUS_NAME_TO_ID = {
@@ -110,3 +110,24 @@ def test_remap_label_file_all_dropped_writes_empty(tmp_path):
     kept = remap_label_file(inp, outp, src_names, cmap, a2i)
     assert kept == 0
     assert outp.read_text(encoding="utf-8") == ""
+
+
+def test_remap_dataset_walks_and_reports_stats(tmp_path):
+    mapping = {
+        "argus_classes": {0: "person", 1: "helmet", 2: "safety-vest", 3: "mask", 4: "shoes"},
+        "datasets": {"sh17": {"map": {"person": "person", "helmet": "helmet", "gloves": "drop"}}},
+    }
+    names = ["person", "ear", "gloves", "helmet"]  # ids 0..3
+    labels = tmp_path / "src" / "labels"
+    labels.mkdir(parents=True)
+    # id0=person (keep->0), id3=helmet (keep->1), id2=gloves (drop)
+    (labels / "img1.txt").write_text(
+        "0 0.5 0.5 0.1 0.1\n3 0.2 0.2 0.1 0.1\n2 0.9 0.9 0.05 0.05\n", encoding="utf-8"
+    )
+    out = tmp_path / "out"
+    stats = remap_dataset(tmp_path / "src", out, "sh17", mapping, names)
+    assert stats == {"files": 1, "kept": 2, "dropped": 1}
+    assert (out / "labels" / "img1.txt").read_text(encoding="utf-8").splitlines() == [
+        "0 0.5 0.5 0.1 0.1",
+        "1 0.2 0.2 0.1 0.1",
+    ]
