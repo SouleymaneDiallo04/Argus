@@ -42,9 +42,26 @@ def _roboflow(workspace: str, project: str, version: int, out: str) -> None:
     proj.version(version).download("yolov8", location=out)
 
 
+def _ensure_kaggle_auth() -> None:
+    """Écrit le token (env KAGGLE_API_TOKEN) dans ~/.kaggle/access_token pour que
+    le paquet kaggle le trouve de façon fiable, y compris dans un sous-processus."""
+    tok = os.environ.get("KAGGLE_API_TOKEN")
+    if not tok:
+        return
+    kdir = Path.home() / ".kaggle"
+    kdir.mkdir(exist_ok=True)
+    token_file = kdir / "access_token"
+    token_file.write_text(tok)
+    try:
+        token_file.chmod(0o600)
+    except OSError:
+        pass
+
+
 def download_sh17() -> None:
     # Base du projet : 8099 images, 17 classes, seule source de shoes + mask. Kaggle.
-    import kaggle  # lit ~/.kaggle/kaggle.json
+    _ensure_kaggle_auth()
+    import kaggle
 
     dest = RAW / "sh17"
     dest.mkdir(parents=True, exist_ok=True)
