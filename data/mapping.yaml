@@ -58,20 +58,20 @@ datasets:
       safety-suit: drop
 
   chv:
-    # CONFIRMÉ : dataset CHV (1330 img — person + vest + casques 4 couleurs).
-    # Source : repo GitHub ZijianWang-ZW/PPE_detection -> données sur Google Drive/Baidu.
-    # ⚠️ Noms de classe exacts + format à LIRE dans son data.yaml au download
-    #    (peut être en VOC/XML -> convertir en YOLO avant remap).
+    # CONFIRMÉ : dataset CHV, déjà en YOLO (~2659 img — person + vest + casques 4 couleurs).
+    # Source : GitHub ZijianWang-ZW/PPE_detection -> Drive (fichier zip unique, 440 Mo).
+    # Structure : CHV_dataset/{images, annotations, data split}. Pas de data.yaml :
+    #   noms depuis le README (ordre id 0-5). Les 4 couleurs de casque -> helmet.
     # N'annote NI mask NI shoes -> pseudo-label requis.
     role: train
     holdout: false
     map:
-      blue: helmet       # ⚠️ noms exacts à confirmer sur le data.yaml
-      yellow: helmet
-      white: helmet
-      red: helmet
       person: person
       vest: safety-vest
+      "blue helmet": helmet
+      "red helmet": helmet
+      "white helmet": helmet
+      "yellow helmet": helmet
     pseudo_label: [mask, shoes]   # prédits par v0, corrigés sur échantillon
 
   pictor:
