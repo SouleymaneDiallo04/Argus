@@ -33,28 +33,29 @@ datasets:
     # 17 classes. SEULE source qui annote shoes ET mask nativement.
     # Sert aussi de base au modèle v0 pour le pseudo-labeling.
     # Source : Kaggle `mugheesahmad/sh17-dataset-for-ppe-detection` (format YOLO).
-    # Noms CONFIRMÉS depuis le repo officiel (vérifier la casse sur le data.yaml).
+    # Noms VERROUILLÉS sur le data.yaml réel du dataset (minuscules ; ordre IDs
+    # différent du README -> raison d'être du mapping par NOM, pas par ID).
     role: train
     holdout: false
     map:
-      Person: person
-      Helmet: helmet
-      Safety-vest: safety-vest
-      Face-mask-medical: mask
-      Shoes: shoes
+      person: person            # id 0
+      helmet: helmet            # id 10
+      safety-vest: safety-vest  # id 16
+      face-mask: mask           # id 5
+      shoes: shoes              # id 14
       # --- jetés (hors taxonomie V1) ---
-      Head: drop
-      Face: drop
-      Glasses: drop
-      Face-guard: drop
-      Ear: drop
-      Earmuffs: drop
-      Hands: drop
-      Gloves: drop
-      Foot: drop
-      Tools: drop
-      Medical-suit: drop
-      Safety-suit: drop
+      ear: drop
+      ear-mufs: drop
+      face: drop
+      face-guard: drop
+      foot: drop
+      tool: drop
+      glasses: drop
+      gloves: drop
+      hands: drop
+      head: drop
+      medical-suit: drop
+      safety-suit: drop
 
   chv:
     # CONFIRMÉ : dataset CHV (1330 img — person + vest + casques 4 couleurs).
