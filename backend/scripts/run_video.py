@@ -32,7 +32,7 @@ def main() -> None:
     args = ap.parse_args()
 
     required = frozenset(args.required.split(","))
-    detector = PPEDetector.from_path(args.model)
+    detector = PPEDetector.from_path(args.model, conf=args.conf)
 
     cap = cv2.VideoCapture(args.video)
     if not cap.isOpened():

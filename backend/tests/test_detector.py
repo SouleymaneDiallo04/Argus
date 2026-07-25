@@ -37,6 +37,16 @@ class _FakeModel:
         return [_FakeResults(self._boxes)]
 
 
+class _RecordingModel:
+    def __init__(self, boxes):
+        self._boxes = boxes
+        self.last_conf = None
+
+    def track(self, frame, **kwargs):
+        self.last_conf = kwargs.get("conf")
+        return [_FakeResults(self._boxes)]
+
+
 def test_to_detections_maps_class_box_conf_track():
     dets = to_detections(
         xyxy=[[10, 20, 30, 40]], cls_ids=[1], confs=[0.9], track_ids=[5],
@@ -65,3 +75,9 @@ def test_ppedetector_converts_tracked_boxes():
 def test_ppedetector_empty_when_no_boxes():
     model = _FakeModel(_FakeBoxes([], [], [], None))
     assert PPEDetector(model).detect(frame=None) == []
+
+
+def test_ppedetector_uses_configured_conf():
+    model = _RecordingModel(_FakeBoxes([], [], [], None))
+    PPEDetector(model, conf=0.5).detect(frame=None)
+    assert model.last_conf == 0.5

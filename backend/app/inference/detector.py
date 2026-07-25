@@ -40,18 +40,20 @@ class PPEDetector:
     dont `[0].boxes` a `.xyxy`, `.cls`, `.conf`, `.id` (chacun avec `.tolist()`).
     """
 
-    def __init__(self, model, names=None):
+    def __init__(self, model, names=None, conf: float = 0.25):
         self._model = model
         self._names = names if names is not None else ARGUS_CLASSES
+        self._conf = conf
 
     @classmethod
-    def from_path(cls, model_path, names=None) -> "PPEDetector":
+    def from_path(cls, model_path, names=None, conf: float = 0.25) -> "PPEDetector":
         from ultralytics import YOLO
 
-        return cls(YOLO(model_path), names)
+        return cls(YOLO(model_path), names, conf)
 
-    def detect(self, frame, conf: float = 0.25) -> list[Detection]:
-        results = self._model.track(frame, persist=True, conf=conf, verbose=False)
+    def detect(self, frame, conf: float | None = None) -> list[Detection]:
+        effective_conf = self._conf if conf is None else conf
+        results = self._model.track(frame, persist=True, conf=effective_conf, verbose=False)
         boxes = results[0].boxes
         if boxes is None or len(boxes) == 0:
             return []
