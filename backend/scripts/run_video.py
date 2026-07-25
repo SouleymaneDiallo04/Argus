@@ -31,7 +31,7 @@ def main() -> None:
     ap.add_argument("--save", default=None, help="chemin de sortie vidéo annotée (optionnel)")
     args = ap.parse_args()
 
-    required = frozenset(args.required.split(","))
+    required = frozenset(t.strip() for t in args.required.split(",") if t.strip())
     detector = PPEDetector.from_path(args.model, conf=args.conf)
 
     cap = cv2.VideoCapture(args.video)
