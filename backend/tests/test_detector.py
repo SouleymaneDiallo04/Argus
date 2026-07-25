@@ -2,7 +2,39 @@ from __future__ import annotations
 
 from app.config import ARGUS_CLASSES
 from app.domain.types import BBox, Detection
-from app.inference.detector import to_detections
+from app.inference.detector import to_detections, PPEDetector
+
+
+class _Arr:
+    def __init__(self, v):
+        self._v = v
+
+    def tolist(self):
+        return self._v
+
+
+class _FakeBoxes:
+    def __init__(self, xyxy, cls, conf, ids):
+        self.xyxy = _Arr(xyxy)
+        self.cls = _Arr(cls)
+        self.conf = _Arr(conf)
+        self.id = _Arr(ids) if ids is not None else None
+
+    def __len__(self):
+        return len(self.cls.tolist())
+
+
+class _FakeResults:
+    def __init__(self, boxes):
+        self.boxes = boxes
+
+
+class _FakeModel:
+    def __init__(self, boxes):
+        self._boxes = boxes
+
+    def track(self, frame, **kwargs):
+        return [_FakeResults(self._boxes)]
 
 
 def test_to_detections_maps_class_box_conf_track():
@@ -22,3 +54,14 @@ def test_to_detections_handles_missing_track_ids():
 def test_to_detections_skips_unknown_class_id():
     dets = to_detections([[0, 0, 1, 1]], [99], [0.5], [1], ARGUS_CLASSES)
     assert dets == []
+
+
+def test_ppedetector_converts_tracked_boxes():
+    model = _FakeModel(_FakeBoxes([[10, 20, 30, 40]], [1], [0.9], [7]))
+    dets = PPEDetector(model).detect(frame=None)
+    assert dets == [Detection("helmet", BBox(10.0, 20.0, 30.0, 40.0), 0.9, 7)]
+
+
+def test_ppedetector_empty_when_no_boxes():
+    model = _FakeModel(_FakeBoxes([], [], [], None))
+    assert PPEDetector(model).detect(frame=None) == []

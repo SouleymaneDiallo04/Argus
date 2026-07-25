@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.domain.types import BBox, Detection
+from app.config import ARGUS_CLASSES
 
 
 def to_detections(xyxy, cls_ids, confs, track_ids, names) -> list[Detection]:
@@ -30,3 +31,32 @@ def to_detections(xyxy, cls_ids, confs, track_ids, names) -> list[Detection]:
             )
         )
     return detections
+
+
+class PPEDetector:
+    """Enveloppe le modèle YOLO (Ultralytics) : frame -> list[Detection], tracking inclus.
+
+    `model` doit exposer `.track(frame, **kwargs)` renvoyant une liste de résultats
+    dont `[0].boxes` a `.xyxy`, `.cls`, `.conf`, `.id` (chacun avec `.tolist()`).
+    """
+
+    def __init__(self, model, names=None):
+        self._model = model
+        self._names = names if names is not None else ARGUS_CLASSES
+
+    @classmethod
+    def from_path(cls, model_path, names=None) -> "PPEDetector":
+        from ultralytics import YOLO
+
+        return cls(YOLO(model_path), names)
+
+    def detect(self, frame, conf: float = 0.25) -> list[Detection]:
+        results = self._model.track(frame, persist=True, conf=conf, verbose=False)
+        boxes = results[0].boxes
+        if boxes is None or len(boxes) == 0:
+            return []
+        track_ids = boxes.id.tolist() if boxes.id is not None else None
+        return to_detections(
+            boxes.xyxy.tolist(), boxes.cls.tolist(), boxes.conf.tolist(),
+            track_ids, self._names,
+        )
