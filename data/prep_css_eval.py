@@ -62,7 +62,9 @@ def write_eval_yaml() -> str:
     eval_yaml = f"{root_abs}/eval.yaml"
     with open(eval_yaml, "w", encoding="utf-8") as f:
         yaml.safe_dump(
-            {"path": root_abs, "val": "holdout_images.txt", "names": ARGUS},
+            # `train` requis par Ultralytics même pour une val seule (non utilisé ici).
+            {"path": root_abs, "train": "holdout_images.txt",
+             "val": "holdout_images.txt", "names": ARGUS},
             f, sort_keys=False, allow_unicode=True,
         )
     print(f"{len(images)} images holdout -> {eval_yaml}")
