@@ -45,6 +45,7 @@ class PPEDetector:
         self._names = names if names is not None else ARGUS_CLASSES
         self._conf = conf
         self._imgsz = imgsz
+        self._reset_next = False
 
     @classmethod
     def from_path(cls, model_path, names=None, conf: float = 0.25, imgsz: int = 640) -> "PPEDetector":
@@ -52,11 +53,18 @@ class PPEDetector:
 
         return cls(YOLO(model_path), names, conf, imgsz)
 
+    def reset(self) -> None:
+        """Marque le prochain detect() comme début d'un nouveau flux : le tracker
+        Ultralytics est réinitialisé (persist=False) puis reprend en continuation."""
+        self._reset_next = True
+
     def detect(self, frame, conf: float | None = None, imgsz: int | None = None) -> list[Detection]:
         effective_conf = self._conf if conf is None else conf
         effective_imgsz = self._imgsz if imgsz is None else imgsz
+        persist = not self._reset_next
+        self._reset_next = False
         results = self._model.track(
-            frame, persist=True, conf=effective_conf, imgsz=effective_imgsz, verbose=False
+            frame, persist=persist, conf=effective_conf, imgsz=effective_imgsz, verbose=False
         )
         boxes = results[0].boxes
         if boxes is None or len(boxes) == 0:

@@ -42,10 +42,12 @@ class _RecordingModel:
         self._boxes = boxes
         self.last_conf = None
         self.last_imgsz = None
+        self.last_persist = None
 
     def track(self, frame, **kwargs):
         self.last_conf = kwargs.get("conf")
         self.last_imgsz = kwargs.get("imgsz")
+        self.last_persist = kwargs.get("persist")
         return [_FakeResults(self._boxes)]
 
 
@@ -89,3 +91,19 @@ def test_ppedetector_uses_configured_imgsz():
     model = _RecordingModel(_FakeBoxes([], [], [], None))
     PPEDetector(model, imgsz=1280).detect(frame=None)
     assert model.last_imgsz == 1280
+
+
+def test_ppedetector_persists_tracking_by_default():
+    model = _RecordingModel(_FakeBoxes([], [], [], None))
+    PPEDetector(model).detect(frame=None)
+    assert model.last_persist is True
+
+
+def test_ppedetector_reset_forces_new_stream_once():
+    model = _RecordingModel(_FakeBoxes([], [], [], None))
+    det = PPEDetector(model)
+    det.reset()
+    det.detect(frame=None)
+    assert model.last_persist is False   # nouveau flux -> tracker réinitialisé
+    det.detect(frame=None)
+    assert model.last_persist is True    # reprend en continuation

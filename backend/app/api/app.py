@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
     @app.websocket("/ws/stream")
     async def stream(ws: WebSocket) -> None:
         await ws.accept()
+        app.state.detector.reset()  # nouveau flux : réinitialise le tracker
         pipeline = FramePipeline(app.state.detector, app.state.zones_store.get_zones())
         try:
             while True:
@@ -54,7 +55,11 @@ def create_app() -> FastAPI:
                 except (ValidationError, ValueError) as exc:
                     await ws.send_json({"error": str(exc)})
                     continue
-                detections, result = pipeline.process(frame, msg.timestamp)
+                try:
+                    detections, result = pipeline.process(frame, msg.timestamp)
+                except Exception as exc:  # une frame défaillante ne doit pas tuer le flux
+                    await ws.send_json({"error": str(exc)})
+                    continue
                 await ws.send_json(frame_response(detections, result))
         except WebSocketDisconnect:
             return

@@ -13,6 +13,17 @@ class _StubDetector:
     def detect(self, frame):
         return self._dets
 
+    def reset(self):
+        pass
+
+
+class _RaisingDetector:
+    def detect(self, frame):
+        raise RuntimeError("boom")
+
+    def reset(self):
+        pass
+
 
 def _client(detector):
     app = create_app()
@@ -86,3 +97,13 @@ def test_ws_malformed_json_returns_error_without_closing():
         ws.send_json({"frame": "OK", "timestamp": 0.0})
         msg = ws.receive_json()
     assert "detections" in msg
+
+
+def test_ws_pipeline_error_returns_error_without_closing():
+    client = _client(_RaisingDetector())
+    with client.websocket_connect("/ws/stream") as ws:
+        ws.send_json({"frame": "OK", "timestamp": 0.0})
+        assert "error" in ws.receive_json()
+        # la connexion reste ouverte : un message suivant reçoit encore une réponse
+        ws.send_json({"frame": "OK", "timestamp": 1.0})
+        assert "error" in ws.receive_json()
