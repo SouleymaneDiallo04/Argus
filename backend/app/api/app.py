@@ -47,8 +47,8 @@ def create_app() -> FastAPI:
         pipeline = FramePipeline(app.state.detector, app.state.zones_store.get_zones())
         try:
             while True:
-                data = await ws.receive_json()
                 try:
+                    data = await ws.receive_json()  # json.loads -> ValueError (JSONDecodeError) si non-JSON
                     msg = FrameMessage(**data)
                     frame = app.state.decode(msg.frame)
                 except (ValidationError, ValueError) as exc:
