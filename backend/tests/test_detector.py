@@ -41,9 +41,11 @@ class _RecordingModel:
     def __init__(self, boxes):
         self._boxes = boxes
         self.last_conf = None
+        self.last_imgsz = None
 
     def track(self, frame, **kwargs):
         self.last_conf = kwargs.get("conf")
+        self.last_imgsz = kwargs.get("imgsz")
         return [_FakeResults(self._boxes)]
 
 
@@ -81,3 +83,9 @@ def test_ppedetector_uses_configured_conf():
     model = _RecordingModel(_FakeBoxes([], [], [], None))
     PPEDetector(model, conf=0.5).detect(frame=None)
     assert model.last_conf == 0.5
+
+
+def test_ppedetector_uses_configured_imgsz():
+    model = _RecordingModel(_FakeBoxes([], [], [], None))
+    PPEDetector(model, imgsz=1280).detect(frame=None)
+    assert model.last_imgsz == 1280

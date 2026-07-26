@@ -27,12 +27,14 @@ def main() -> None:
     ap.add_argument("--video", required=True, help="chemin de la vidéo")
     ap.add_argument("--required", default="helmet", help="EPI requis, séparés par des virgules")
     ap.add_argument("--conf", type=float, default=0.25)
+    ap.add_argument("--imgsz", type=int, default=640,
+                    help="résolution d'inférence (960/1280 détecte mieux les petits/lointains)")
     ap.add_argument("--show", action="store_true")
     ap.add_argument("--save", default=None, help="chemin de sortie vidéo annotée (optionnel)")
     args = ap.parse_args()
 
     required = frozenset(t.strip() for t in args.required.split(",") if t.strip())
-    detector = PPEDetector.from_path(args.model, conf=args.conf)
+    detector = PPEDetector.from_path(args.model, conf=args.conf, imgsz=args.imgsz)
 
     cap = cv2.VideoCapture(args.video)
     if not cap.isOpened():
