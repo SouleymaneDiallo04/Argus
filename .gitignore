@@ -52,3 +52,9 @@ evidence/
 Thumbs.db
 .vscode/
 .idea/
+
+# ===== Modèles & vidéos volumineux (hors dépôt) =====
+*.pt
+*.onnx
+*.mp4
+*.avi
