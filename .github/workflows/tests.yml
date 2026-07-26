@@ -14,12 +14,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install pytest
-        run: pip install --quiet pytest
+      - name: Install backend test deps
+        run: pip install --quiet -r backend/requirements-dev.txt
 
-      - name: Backend tests (domain + inference + pipeline)
+      - name: Backend tests (domain + inference + pipeline + api)
         run: python -m pytest -q
         working-directory: backend
+
+      - name: Install pytest (data)
+        run: pip install --quiet pytest
 
       - name: Data pipeline tests (remap / convert / fuse)
         run: python -m pytest -q
