@@ -479,16 +479,35 @@ def test_ws_stream_returns_compliance():
 
 
 def test_ws_invalid_frame_returns_error_without_closing():
-    client = _client(_StubDetector([]))
+    person = Detection("person", BBox(100, 100, 200, 400), 0.9, track_id=1)
+    client = _client(_StubDetector([person]))
+    client.put("/zones", json={"zones": [{"name": "z", "polygon": [[0, 0], [640, 0], [640, 480], [0, 480]],
+                                          "required_ppe": ["helmet"]}]})
+    app = client.app
 
     def _bad_decode(b64):
         raise ValueError("frame illisible")
 
-    client.app.state.decode = _bad_decode
     with client.websocket_connect("/ws/stream") as ws:
+        app.state.decode = _bad_decode
         ws.send_json({"frame": "BAD", "timestamp": 0.0})
+        assert "error" in ws.receive_json()
+        # la connexion reste ouverte : une frame valide ensuite est traitée normalement
+        app.state.decode = lambda b64: b64
+        ws.send_json({"frame": "OK", "timestamp": 1.0})
         msg = ws.receive_json()
-    assert "error" in msg
+    assert msg["detections"][0]["cls"] == "person"
+
+
+def test_ws_malformed_json_returns_error_without_closing():
+    client = _client(_StubDetector([]))
+    with client.websocket_connect("/ws/stream") as ws:
+        ws.send_text("this is not json")          # receive_json -> JSONDecodeError (ValueError)
+        assert "error" in ws.receive_json()
+        # la connexion reste ouverte : un message JSON valide ensuite reçoit une réponse normale
+        ws.send_json({"frame": "OK", "timestamp": 0.0})
+        msg = ws.receive_json()
+    assert "detections" in msg
 ```
 
 - [ ] **Step 2: Lancer le test pour vérifier qu'il échoue**
@@ -548,8 +567,8 @@ def create_app() -> FastAPI:
         pipeline = FramePipeline(app.state.detector, app.state.zones_store.get_zones())
         try:
             while True:
-                data = await ws.receive_json()
                 try:
+                    data = await ws.receive_json()  # json.loads -> ValueError (JSONDecodeError) si non-JSON
                     msg = FrameMessage(**data)
                     frame = app.state.decode(msg.frame)
                 except (ValidationError, ValueError) as exc:
@@ -566,7 +585,7 @@ def create_app() -> FastAPI:
 - [ ] **Step 4: Lancer le test pour vérifier qu'il passe**
 
 Run: `cd backend && py -m pytest tests/test_api.py -v`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 5: Lancer la suite backend complète**
 
