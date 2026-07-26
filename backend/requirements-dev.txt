@@ -1,0 +1,5 @@
+pytest
+fastapi
+httpx
+opencv-python-headless
+numpy

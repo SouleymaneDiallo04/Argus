@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
+
+from app.api.decode import decode_frame
+from app.api.schemas import FrameMessage, ZonesConfig, frame_response
+from app.api.zones_store import ZonesStore
+from app.pipeline import FramePipeline
+
+
+def create_app() -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # les tests pré-injectent un stub -> on saute le chargement du vrai modèle
+        if app.state.detector is None:
+            from app.inference.detector import PPEDetector
+
+            path = os.environ.get("ARGUS_MODEL_PATH", "best.pt")
+            app.state.detector = PPEDetector.from_path(path)
+        yield
+
+    app = FastAPI(title="Argus", lifespan=lifespan)
+    app.state.zones_store = ZonesStore()
+    app.state.detector = None            # remplacé par un stub dans les tests
+    app.state.decode = decode_frame
+
+    @app.get("/health")
+    def health() -> dict:
+        return {"status": "ok", "model_loaded": app.state.detector is not None}
+
+    @app.get("/zones")
+    def get_zones() -> ZonesConfig:
+        return app.state.zones_store.to_config()
+
+    @app.put("/zones")
+    def put_zones(config: ZonesConfig) -> ZonesConfig:
+        app.state.zones_store.set_from_config(config)
+        return app.state.zones_store.to_config()
+
+    @app.websocket("/ws/stream")
+    async def stream(ws: WebSocket) -> None:
+        await ws.accept()
+        app.state.detector.reset()  # nouveau flux : réinitialise le tracker
+        pipeline = FramePipeline(app.state.detector, app.state.zones_store.get_zones())
+        try:
+            while True:
+                try:
+                    data = await ws.receive_json()  # json.loads -> ValueError (JSONDecodeError) si non-JSON
+                    msg = FrameMessage(**data)
+                    frame = app.state.decode(msg.frame)
+                except (ValidationError, ValueError) as exc:
+                    await ws.send_json({"error": str(exc)})
+                    continue
+                try:
+                    detections, result = pipeline.process(frame, msg.timestamp)
+                except Exception as exc:  # une frame défaillante ne doit pas tuer le flux
+                    await ws.send_json({"error": str(exc)})
+                    continue
+                await ws.send_json(frame_response(detections, result))
+        except WebSocketDisconnect:
+            return
+
+    return app
