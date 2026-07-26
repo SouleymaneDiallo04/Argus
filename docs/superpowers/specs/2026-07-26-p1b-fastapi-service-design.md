@@ -61,7 +61,7 @@ Frame illisible / base64 invalide → message `{"error": "..."}` sur le WS, sans
 | `app/api/schemas.py` | Modèles Pydantic (requête/réponse) : `ZoneModel`, `ZonesConfig`, `FrameMessage`, et la sérialisation `Detection`/`ComplianceResult`/`ViolationEvent` → dict. |
 | `app/api/zones_store.py` | `ZonesStore` : détient la liste de `Zone` (domaine) en mémoire, get/set, conversion depuis/vers les modèles Pydantic. |
 | `app/api/decode.py` | `decode_frame(b64: str) -> np.ndarray` : base64 → OpenCV. Lève une erreur claire si illisible. |
-| `app/api/app.py` | L'app FastAPI : startup (charge le modèle), routes REST, endpoint WS. Le détecteur et le `ZonesStore` sont fournis par **injection de dépendance** (surchargée dans les tests). |
+| `app/api/app.py` | L'app FastAPI (`create_app()`) : `lifespan` (charge le modèle une fois au démarrage ; sauté si un détecteur est déjà présent dans `app.state`), routes REST, endpoint WS. Le détecteur et le décodeur vivent dans `app.state` (`app.state.detector` / `app.state.decode`), surchargés par des stubs dans les tests. Le tracker est réinitialisé (`detector.reset()`) à chaque nouvelle connexion WS. |
 
 ## Gestion d'erreurs
 - `PUT /zones` avec payload malformé → 422 (validation Pydantic).
@@ -70,10 +70,10 @@ Frame illisible / base64 invalide → message `{"error": "..."}` sur le WS, sans
 
 ## Tests
 - FastAPI `TestClient` (REST) + `TestClient.websocket_connect` (WS).
-- Le **détecteur est injecté** via `app.dependency_overrides` → les tests utilisent un **stub** (`.detect(frame) -> list[Detection]` canné) : **pas de vrai modèle, pas d'ultralytics dans la suite de tests**.
-- Le **décodage** est isolé (`decode.py`) : dans les tests WS, le stub-pipeline ignore la frame décodée, donc on peut envoyer un base64 factice. `decode_frame` est testé à part avec une vraie petite image encodée.
-- Cas couverts : `GET/PUT /zones` (aller-retour + validation 422), cycle WS (frame → JSON détections/résultats/événements), rejet d'une frame illisible.
-- La CI existante devra installer `fastapi`, `uvicorn`, `httpx` (client de test) — `opencv` seulement pour le test de `decode_frame`.
+- Le **détecteur est injecté** via `app.state.detector` → les tests y placent un **stub** (`.detect(frame) -> list[Detection]` canné, + `.reset()` no-op) **avant** d'instancier le `TestClient` (utilisé sans context manager, donc le `lifespan` ne charge jamais le vrai modèle) : **pas de vrai modèle, pas d'ultralytics dans la suite de tests**.
+- Le **décodage** est isolé (`decode.py`) et injecté via `app.state.decode` : dans les tests WS on le remplace par une fonction identité, donc on peut envoyer un base64 factice sans OpenCV. `decode_frame` est testé à part avec une vraie petite image encodée.
+- Cas couverts : `GET/PUT /zones` (aller-retour + validation 422), cycle WS (frame → JSON détections/résultats/événements), frame illisible et **JSON malformé** (message `{"error": ...}` sans fermer la connexion, prouvé par un aller-retour valide ensuite), erreur d'inférence en plein flux (le flux survit).
+- La CI installe `backend/requirements-dev.txt` (`pytest`, `fastapi`, `httpx`, `opencv-python-headless`, `numpy`) — **sans `ultralytics`**, donc la suite tourne vite et le vrai modèle n'est jamais chargé en test.
 
 ## Frontières & DRY
-Aucune modification de `app.domain` ni de `app.pipeline`. La sérialisation des types du domaine → JSON vit dans `schemas.py` (un seul endroit). Le service réutilise `FramePipeline.process` tel quel.
+Aucune modification de `app.domain` ni de `app.pipeline`. La sérialisation des types du domaine → JSON vit dans `schemas.py` (un seul endroit). Le service réutilise `FramePipeline.process` tel quel. Seule exception côté P1a : ajout d'une méthode `PPEDetector.reset()` (couche `app.inference`) pour réinitialiser le tracker Ultralytics en début de connexion.

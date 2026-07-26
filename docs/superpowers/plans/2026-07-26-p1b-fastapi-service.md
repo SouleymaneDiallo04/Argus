@@ -564,6 +564,7 @@ def create_app() -> FastAPI:
     @app.websocket("/ws/stream")
     async def stream(ws: WebSocket) -> None:
         await ws.accept()
+        app.state.detector.reset()  # nouveau flux : réinitialise le tracker
         pipeline = FramePipeline(app.state.detector, app.state.zones_store.get_zones())
         try:
             while True:
@@ -574,7 +575,11 @@ def create_app() -> FastAPI:
                 except (ValidationError, ValueError) as exc:
                     await ws.send_json({"error": str(exc)})
                     continue
-                detections, result = pipeline.process(frame, msg.timestamp)
+                try:
+                    detections, result = pipeline.process(frame, msg.timestamp)
+                except Exception as exc:  # une frame défaillante ne doit pas tuer le flux
+                    await ws.send_json({"error": str(exc)})
+                    continue
                 await ws.send_json(frame_response(detections, result))
         except WebSocketDisconnect:
             return
@@ -610,3 +615,15 @@ git commit -m "feat(api): FastAPI app with health, zones REST, and WS inference 
 **3. Cohérence des types :** `ZoneModel.to_domain -> Zone` (Task 1) consommé par `ZonesStore.set_from_config` (Task 2) ; `frame_response(list[Detection], FrameResult) -> dict` (Task 1) consommé par le WS (Task 4) ; `FramePipeline(detector, zones).process(frame, ts) -> (list[Detection], FrameResult)` (P1a) appelé en Task 4 ; `decode_frame(str) -> np.ndarray` (Task 3) branché via `app.state.decode` (Task 4). Cohérent.
 
 **4. Contrainte tests légers :** `test_schemas`/`test_zones_store` = Pydantic seul ; `test_api` = FastAPI + stub détecteur + stub décodeur (ni ultralytics ni OpenCV) ; `test_decode` = seul à importer `cv2`. La CI installe `requirements-dev.txt` (fastapi/httpx/opencv-headless/numpy/pytest), **sans ultralytics** → CI rapide.
+
+---
+
+## Ajustements post-revue (appliqués après exécution)
+
+Corrections issues des revues (par tâche + revue finale de branche), au-delà du plan initial :
+
+1. **Placement de `receive_json()` (fix WS JSON malformé)** — `receive_json()` déplacé *dans* le `try` interne : un JSON malformé lève `json.JSONDecodeError` (sous-classe de `ValueError`) désormais capturé → `{"error": ...}` sans fermer la connexion. Tests renforcés (`test_ws_invalid_frame_...`, `test_ws_malformed_json_...`) pour prouver la continuité par un aller-retour valide ensuite.
+2. **Reset du tracker par connexion (touche `app.inference`, décision utilisateur)** — ajout de `PPEDetector.reset()` : passe le prochain `detect()` en `persist=False` (le tracker Ultralytics repart de zéro) puis reprend en `persist=True`. Appelé au `ws.accept()`. Les stubs de test exposent un `reset()` no-op. Tests : `test_ppedetector_persists_tracking_by_default`, `test_ppedetector_reset_forces_new_stream_once`.
+3. **Robustesse flux (wrapper défensif)** — `pipeline.process(...)` entouré d'un `try/except Exception` : une frame défaillante renvoie `{"error": ...}` et le flux continue au lieu de tomber. Test : `test_ws_pipeline_error_returns_error_without_closing`.
+
+Suite finale : **65 tests, sortie pristine**. Hors périmètre (→ P3) : cap taille de frame, auth, CORS, persistance.
