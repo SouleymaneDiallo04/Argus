@@ -38,7 +38,7 @@ jobs:
           node-version: "22"
 
       - name: Install frontend deps
-        run: npm ci
+        run: npm install --no-audit --no-fund
         working-directory: frontend
 
       - name: Frontend tests (Vitest)
