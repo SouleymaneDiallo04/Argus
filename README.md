@@ -61,7 +61,16 @@ argus/
 
 ## Rigueur & évaluation
 
-Métriques **par classe** (mAP@50, mAP@50-95), test **cross-dataset** (généralisation honnête), tests unitaires de la logique métier. Résultats publiés ici au fil du développement.
+Métriques **par classe** (mAP@50, mAP@50-95), test **cross-dataset** (généralisation honnête), tests unitaires de la logique métier. Rapport complet : [`docs/model-evaluation.md`](docs/model-evaluation.md).
+
+**Détecteur YOLOv8n — val interne, mAP@50 par classe :**
+
+| person | helmet | safety-vest | mask | shoes | **all** |
+|---|---|---|---|---|---|
+| 0.888 | 0.886 | 0.794 | 0.761 | 0.544 | **0.775** |
+
+- **Généralisation cross-dataset** (holdout css-data, jamais entraîné) : all mAP@50 **0.624** → domain gap ~15 % relatif, *mesuré et publié* plutôt que masqué.
+- **Amélioration ciblée de la classe faible `shoes`** (résolution 640→960 + oversampling) : mAP@50 **0.445 → 0.544 (+22 %)**, rappel **0.42 → 0.52 (+24 %)**, sans régression des autres classes.
 
 ## Auteur
 
