@@ -4,6 +4,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from app.api.decode import decode_frame
@@ -24,6 +25,14 @@ def create_app() -> FastAPI:
         yield
 
     app = FastAPI(title="Argus", lifespan=lifespan)
+    origins = [o.strip() for o in os.environ.get(
+        "ARGUS_CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.state.zones_store = ZonesStore()
     app.state.detector = None            # remplacé par un stub dans les tests
     app.state.decode = decode_frame
