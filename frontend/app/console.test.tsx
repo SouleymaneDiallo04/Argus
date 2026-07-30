@@ -13,6 +13,8 @@ beforeAll(() => {
     send() {}
     close() {}
   };
+  // Le Workspace charge les zones au montage (GET /zones) : mock pour ne pas dépendre du backend.
+  globalThis.fetch = (async () => ({ ok: true, status: 200, json: async () => ({ zones: [] }) })) as typeof fetch;
 });
 
 test("la console rend le shell + le sélecteur de source vidéo", () => {
