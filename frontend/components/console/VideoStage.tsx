@@ -2,14 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import { detectionsToBoxes } from "@/lib/overlay";
+import { ZoneEditor } from "./ZoneEditor";
+import type { ApiZone } from "@/lib/zonesApi";
 import type { FrameResponse } from "@/lib/types";
 
 export function VideoStage({
   response,
   onFrame,
+  zones = [],
+  editing = false,
+  onSaved,
+  onCancel,
 }: {
   response: FrameResponse | null;
   onFrame: (video: HTMLVideoElement, canvas: HTMLCanvasElement) => void;
+  zones?: ApiZone[];
+  editing?: boolean;
+  onSaved?: () => void;
+  onCancel?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sampleCanvas = useRef<HTMLCanvasElement>(null);
@@ -53,7 +63,22 @@ export function VideoStage({
       ctx.fillStyle = "#04140c";
       ctx.fillText(b.label, b.x + 5, b.y - 4);
     }
-  }, [response]);
+    // zones existantes (coords frame -> écran)
+    for (const z of zones) {
+      ctx.strokeStyle = "rgba(59,130,246,.7)";
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      z.polygon.forEach(([px, py], i) => {
+        const x = px * (o.width / v.videoWidth),
+          y = py * (o.height / v.videoHeight);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }, [response, zones]);
 
   async function useWebcam() {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -90,6 +115,15 @@ export function VideoStage({
             </label>
           </div>
         </div>
+      ) : null}
+      {editing && videoRef.current ? (
+        <ZoneEditor
+          videoWidth={videoRef.current.videoWidth}
+          videoHeight={videoRef.current.videoHeight}
+          existing={zones}
+          onSaved={() => onSaved?.()}
+          onCancel={() => onCancel?.()}
+        />
       ) : null}
     </div>
   );
