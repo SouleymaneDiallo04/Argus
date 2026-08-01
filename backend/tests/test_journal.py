@@ -40,3 +40,37 @@ def test_events_limit_and_offset():
         j.record_event(_ev(i, "Z", ["helmet"]), _ts(30 + i))
     assert len(j.events(limit=2)) == 2
     assert [r["track_id"] for r in j.events(limit=2, offset=2)] == [2, 1]
+
+
+def test_record_observations_upsert_is_additive():
+    j = Journal(":memory:")
+    j.record_observations("2026-07-29T14:30", "Fonderie", 4, 3)
+    j.record_observations("2026-07-29T14:30", "Fonderie", 6, 2)   # même clé -> somme
+    g = j.stats()["global"]
+    assert g == {"person_frames": 10, "compliant_frames": 5, "rate": 0.5}
+
+
+def test_stats_global_by_zone_over_time_excludes_no_zone():
+    j = Journal(":memory:")
+    j.record_observations("2026-07-29T14:30", "Fonderie", 10, 7)
+    j.record_observations("2026-07-29T14:31", "Fonderie", 5, 5)
+    j.record_observations("2026-07-29T14:30", "", 3, 3)           # hors zone -> exclu
+    s = j.stats()
+    assert s["global"] == {"person_frames": 15, "compliant_frames": 12, "rate": 12 / 15}
+    by_zone = {z["zone"]: z for z in s["by_zone"]}
+    assert set(by_zone) == {"Fonderie"}                           # "" exclu
+    assert by_zone["Fonderie"]["rate"] == 12 / 15
+    assert [o["bucket"] for o in s["over_time"]] == ["2026-07-29T14:30", "2026-07-29T14:31"]
+
+
+def test_stats_rate_null_when_no_observation():
+    assert Journal(":memory:").stats()["global"]["rate"] is None
+
+
+def test_stats_violations_count_from_events():
+    j = Journal(":memory:")
+    j.record_event(_ev(1, "Fonderie", ["helmet"]), _ts(30))
+    j.record_event(_ev(2, "Fonderie", ["mask"]), _ts(31))
+    v = j.stats()["violations"]
+    assert v["total"] == 2
+    assert v["by_zone"]["Fonderie"] == 2

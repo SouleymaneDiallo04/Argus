@@ -57,7 +57,74 @@ class Journal:
             )
             self._conn.commit()
 
+    def record_observations(self, bucket: str, zone: str,
+                            person_frames: int, compliant_frames: int) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO observations (bucket, zone, person_frames, compliant_frames) "
+                "VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(bucket, zone) DO UPDATE SET "
+                "  person_frames = person_frames + excluded.person_frames, "
+                "  compliant_frames = compliant_frames + excluded.compliant_frames",
+                (bucket, zone, person_frames, compliant_frames),
+            )
+            self._conn.commit()
+
     # --- lecture ---
+    def stats(self, *, since=None, until=None, zone=None) -> dict:
+        obs_clauses, obs_params = [], []
+        if zone is not None:
+            obs_clauses.append("zone = ?"); obs_params.append(zone)
+        else:
+            obs_clauses.append("zone <> ''")                      # exclut hors-zone
+        if since is not None:
+            obs_clauses.append("bucket >= ?"); obs_params.append(since[:16])
+        if until is not None:
+            obs_clauses.append("bucket <= ?"); obs_params.append(until[:16])
+        obs_where = " WHERE " + " AND ".join(obs_clauses)
+
+        g = self._conn.execute(
+            f"SELECT COALESCE(SUM(person_frames), 0) pf, "
+            f"COALESCE(SUM(compliant_frames), 0) cf FROM observations{obs_where}",
+            obs_params,
+        ).fetchone()
+        global_stat = _rate_row(g["pf"], g["cf"])
+
+        by_zone = [
+            {"zone": r["zone"], **_rate_row(r["pf"], r["cf"])}
+            for r in self._conn.execute(
+                f"SELECT zone, SUM(person_frames) pf, SUM(compliant_frames) cf "
+                f"FROM observations{obs_where} GROUP BY zone ORDER BY zone", obs_params,
+            ).fetchall()
+        ]
+        over_time = [
+            {"bucket": r["bucket"], **_rate_row(r["pf"], r["cf"])}
+            for r in self._conn.execute(
+                f"SELECT bucket, SUM(person_frames) pf, SUM(compliant_frames) cf "
+                f"FROM observations{obs_where} GROUP BY bucket ORDER BY bucket", obs_params,
+            ).fetchall()
+        ]
+
+        ev_clauses, ev_params = [], []
+        if zone is not None:
+            ev_clauses.append("zone = ?"); ev_params.append(zone)
+        if since is not None:
+            ev_clauses.append("ts >= ?"); ev_params.append(since)
+        if until is not None:
+            ev_clauses.append("ts <= ?"); ev_params.append(until)
+        ev_where = (" WHERE " + " AND ".join(ev_clauses)) if ev_clauses else ""
+        total = self._conn.execute(
+            f"SELECT COUNT(*) n FROM events{ev_where}", ev_params).fetchone()["n"]
+        by_zone_v = {
+            r["zone"]: r["n"]
+            for r in self._conn.execute(
+                f"SELECT zone, COUNT(*) n FROM events{ev_where} GROUP BY zone", ev_params,
+            ).fetchall()
+        }
+        return {"global": global_stat, "by_zone": by_zone,
+                "over_time": over_time,
+                "violations": {"total": total, "by_zone": by_zone_v}}
+
     def events(self, *, zone=None, ppe=None, since=None, until=None, camera=None,
                limit=100, offset=0) -> list[dict]:
         clauses, params = [], []
