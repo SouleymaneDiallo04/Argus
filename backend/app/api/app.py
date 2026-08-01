@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
@@ -22,6 +24,10 @@ def create_app() -> FastAPI:
 
             path = os.environ.get("ARGUS_MODEL_PATH", "best.pt")
             app.state.detector = PPEDetector.from_path(path)
+        if app.state.journal is None:
+            from app.persistence.journal import Journal
+
+            app.state.journal = Journal(os.environ.get("ARGUS_DB_PATH", "argus.db"))
         yield
 
     app = FastAPI(title="Argus", lifespan=lifespan)
@@ -35,6 +41,7 @@ def create_app() -> FastAPI:
     )
     app.state.zones_store = ZonesStore()
     app.state.detector = None            # remplacé par un stub dans les tests
+    app.state.journal = None             # remplacé par un Journal(":memory:") dans les tests
     app.state.decode = decode_frame
 
     @app.get("/health")
@@ -49,6 +56,28 @@ def create_app() -> FastAPI:
     def put_zones(config: ZonesConfig) -> ZonesConfig:
         app.state.zones_store.set_from_config(config)
         return app.state.zones_store.to_config()
+
+    @app.get("/events")
+    def get_events(
+        zone: str | None = None,
+        ppe: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        camera: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict:
+        return {"events": app.state.journal.events(
+            zone=zone, ppe=ppe, since=since, until=until,
+            camera=camera, limit=limit, offset=offset)}
+
+    @app.get("/stats")
+    def get_stats(
+        since: str | None = None,
+        until: str | None = None,
+        zone: str | None = None,
+    ) -> dict:
+        return app.state.journal.stats(since=since, until=until, zone=zone)
 
     @app.websocket("/ws/stream")
     async def stream(ws: WebSocket) -> None:
@@ -69,6 +98,11 @@ def create_app() -> FastAPI:
                 except Exception as exc:  # une frame défaillante ne doit pas tuer le flux
                     await ws.send_json({"error": str(exc)})
                     continue
+                try:
+                    await run_in_threadpool(
+                        app.state.journal.record_frame, result, datetime.now(timezone.utc))
+                except Exception:
+                    pass  # une panne de persistance ne doit pas tuer le flux live
                 await ws.send_json(frame_response(detections, result))
         except WebSocketDisconnect:
             return
