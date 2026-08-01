@@ -71,6 +71,14 @@ def create_app() -> FastAPI:
             zone=zone, ppe=ppe, since=since, until=until,
             camera=camera, limit=limit, offset=offset)}
 
+    @app.get("/stats")
+    def get_stats(
+        since: str | None = None,
+        until: str | None = None,
+        zone: str | None = None,
+    ) -> dict:
+        return app.state.journal.stats(since=since, until=until, zone=zone)
+
     @app.websocket("/ws/stream")
     async def stream(ws: WebSocket) -> None:
         await ws.accept()
