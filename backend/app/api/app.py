@@ -57,6 +57,20 @@ def create_app() -> FastAPI:
         app.state.zones_store.set_from_config(config)
         return app.state.zones_store.to_config()
 
+    @app.get("/events")
+    def get_events(
+        zone: str | None = None,
+        ppe: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        camera: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict:
+        return {"events": app.state.journal.events(
+            zone=zone, ppe=ppe, since=since, until=until,
+            camera=camera, limit=limit, offset=offset)}
+
     @app.websocket("/ws/stream")
     async def stream(ws: WebSocket) -> None:
         await ws.accept()
