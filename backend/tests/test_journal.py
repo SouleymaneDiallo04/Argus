@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.domain.types import ViolationEvent
+from app.domain.types import ComplianceResult, FrameResult, ViolationEvent
 from app.persistence.journal import Journal
 
 
@@ -74,3 +74,26 @@ def test_stats_violations_count_from_events():
     v = j.stats()["violations"]
     assert v["total"] == 2
     assert v["by_zone"]["Fonderie"] == 2
+
+
+def _cr(track_id, zone, compliant, missing=()):
+    return ComplianceResult(track_id=track_id, zone=zone, required=frozenset(),
+                            present=frozenset(), missing=frozenset(missing),
+                            compliant=compliant)
+
+
+def test_record_frame_persists_events_and_observations():
+    j = Journal(":memory:")
+    result = FrameResult(
+        results=[_cr(1, "Fonderie", False, ["helmet"]),
+                 _cr(2, "Fonderie", True),
+                 _cr(3, None, True)],                 # hors zone
+        events=[_ev(1, "Fonderie", ["helmet"])],
+    )
+    j.record_frame(result, _ts(30))
+    assert len(j.events()) == 1                        # l'event est journalisé
+    fonderie = {z["zone"]: z for z in j.stats()["by_zone"]}["Fonderie"]
+    assert fonderie["person_frames"] == 2              # persons 1 & 2 (zone nommée)
+    assert fonderie["compliant_frames"] == 1           # seul le 2 est conforme
+    # la personne hors zone est agrégée sous "" (exclue du global/by_zone)
+    assert j.stats()["global"]["person_frames"] == 2

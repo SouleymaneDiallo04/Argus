@@ -70,6 +70,19 @@ class Journal:
             )
             self._conn.commit()
 
+    def record_frame(self, result: FrameResult, now: datetime) -> None:
+        for event in result.events:
+            self.record_event(event, now)
+        bucket = now.strftime("%Y-%m-%dT%H:%M")
+        counts: dict[str, list[int]] = {}
+        for r in result.results:
+            c = counts.setdefault(r.zone or "", [0, 0])
+            c[0] += 1
+            if r.compliant:
+                c[1] += 1
+        for zone, (pf, cf) in counts.items():
+            self.record_observations(bucket, zone, pf, cf)
+
     # --- lecture ---
     def stats(self, *, since=None, until=None, zone=None) -> dict:
         obs_clauses, obs_params = [], []
