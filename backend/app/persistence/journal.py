@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS events (
     camera TEXT NOT NULL,
     zone TEXT,
     track_id INTEGER NOT NULL,
-    missing TEXT NOT NULL
+    missing TEXT NOT NULL,
+    snapshot TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_events_zone ON events(zone);
@@ -44,16 +45,21 @@ class Journal:
             self._conn.execute("PRAGMA journal_mode=WAL")
         self._lock = threading.Lock()
         self._conn.executescript(_SCHEMA)
+        try:
+            self._conn.execute("ALTER TABLE events ADD COLUMN snapshot TEXT")
+        except sqlite3.OperationalError:
+            pass  # colonne déjà présente (DB créée avant P3-b)
         self._conn.commit()
 
     # --- écriture ---
-    def record_event(self, event: ViolationEvent, ts: datetime) -> None:
+    def record_event(self, event: ViolationEvent, ts: datetime,
+                     snapshot: str | None = None) -> None:
         with self._lock:
             self._conn.execute(
-                "INSERT INTO events (ts, stream_ts, camera, zone, track_id, missing) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO events (ts, stream_ts, camera, zone, track_id, missing, snapshot) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (ts.isoformat(), event.timestamp, event.camera, event.zone,
-                 event.track_id, json.dumps(sorted(event.missing))),
+                 event.track_id, json.dumps(sorted(event.missing)), snapshot),
             )
             self._conn.commit()
 
@@ -70,9 +76,10 @@ class Journal:
             )
             self._conn.commit()
 
-    def record_frame(self, result: FrameResult, now: datetime) -> None:
+    def record_frame(self, result: FrameResult, now: datetime,
+                     snapshot: str | None = None) -> None:
         for event in result.events:
-            self.record_event(event, now)
+            self.record_event(event, now, snapshot)
         bucket = now.strftime("%Y-%m-%dT%H:%M")
         counts: dict[str, list[int]] = {}
         for r in result.results:
@@ -154,13 +161,24 @@ class Journal:
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         limit = max(1, min(int(limit), 1000))
         rows = self._conn.execute(
-            f"SELECT id, ts, stream_ts, camera, zone, track_id, missing FROM events"
+            f"SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot FROM events"
             f"{where} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?",
             (*params, limit, int(offset)),
         ).fetchall()
         return [
             {"id": r["id"], "ts": r["ts"], "stream_ts": r["stream_ts"],
              "camera": r["camera"], "zone": r["zone"], "track_id": r["track_id"],
-             "missing": json.loads(r["missing"])}
+             "missing": json.loads(r["missing"]), "snapshot": r["snapshot"]}
             for r in rows
         ]
+
+    def event(self, event_id: int) -> dict | None:
+        r = self._conn.execute(
+            "SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot "
+            "FROM events WHERE id = ?", (event_id,),
+        ).fetchone()
+        if r is None:
+            return None
+        return {"id": r["id"], "ts": r["ts"], "stream_ts": r["stream_ts"],
+                "camera": r["camera"], "zone": r["zone"], "track_id": r["track_id"],
+                "missing": json.loads(r["missing"]), "snapshot": r["snapshot"]}

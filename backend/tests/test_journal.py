@@ -97,3 +97,25 @@ def test_record_frame_persists_events_and_observations():
     assert fonderie["compliant_frames"] == 1           # seul le 2 est conforme
     # la personne hors zone est agrégée sous "" (exclue du global/by_zone)
     assert j.stats()["global"]["person_frames"] == 2
+
+
+def test_record_event_stores_snapshot():
+    j = Journal(":memory:")
+    j.record_event(_ev(1, "Z", ["helmet"]), _ts(30), snapshot="abc.jpg")
+    assert j.events()[0]["snapshot"] == "abc.jpg"
+
+
+def test_event_lookup_by_id():
+    j = Journal(":memory:")
+    j.record_event(_ev(1, "Z", ["helmet"]), _ts(30), snapshot="abc.jpg")
+    row_id = j.events()[0]["id"]
+    assert j.event(row_id)["snapshot"] == "abc.jpg"
+    assert j.event(9999) is None
+
+
+def test_record_frame_attaches_snapshot():
+    j = Journal(":memory:")
+    result = FrameResult(results=[_cr(1, "Z", False, ["helmet"])],
+                         events=[_ev(1, "Z", ["helmet"])])
+    j.record_frame(result, _ts(30), snapshot="snap.jpg")
+    assert j.events()[0]["snapshot"] == "snap.jpg"
