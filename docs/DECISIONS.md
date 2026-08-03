@@ -2,6 +2,16 @@
 
 Registre des décisions d'architecture non évidentes (ADR léger). Le plus récent en haut.
 
+## 2026-08-01 — P3-b : floutage RGPD par heuristique région-tête (pas de détecteur de visage)
+**Contexte.** Le floutage des preuves exige de localiser la tête, mais le modèle n'a pas de
+classe tête/visage. Un détecteur de visage (Haar/DNN) échoue précisément sur casque, angle
+et occlusion — le cas industriel.
+**Décision.** Flouter par **pixelisation** le **haut 30 % du bbox de chaque personne** (bande
+`helmet` de `association.py`). Zéro dépendance, robuste, **garantit** le floutage. Snapshot
+plein cadre, écrit uniquement après floutage (aucune image nette sur disque).
+**Conséquence.** Sur-floutage léger accepté (côté sûr RGPD). Un vrai détecteur tête/visage
+reste envisageable en V2 via l'active-learning.
+
 ## 2026-07-29 — P3-a : sémantique temps du journal = horloge murale serveur
 **Contexte.** Le journal d'infractions et les agrégats de conformité ont besoin d'un axe temps.
 Le client envoie un `timestamp` **relatif au flux** (repart de 0 à chaque connexion).

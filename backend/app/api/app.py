@@ -4,9 +4,10 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from app.api.decode import decode_frame
@@ -28,6 +29,11 @@ def create_app() -> FastAPI:
             from app.persistence.journal import Journal
 
             app.state.journal = Journal(os.environ.get("ARGUS_DB_PATH", "argus.db"))
+        if app.state.snapshots is None:
+            from app.evidence.snapshots import SnapshotStore
+
+            app.state.snapshots = SnapshotStore(
+                os.environ.get("ARGUS_SNAPSHOT_DIR", "snapshots"))
         yield
 
     app = FastAPI(title="Argus", lifespan=lifespan)
@@ -42,6 +48,7 @@ def create_app() -> FastAPI:
     app.state.zones_store = ZonesStore()
     app.state.detector = None            # remplacé par un stub dans les tests
     app.state.journal = None             # remplacé par un Journal(":memory:") dans les tests
+    app.state.snapshots = None           # remplacé par un SnapshotStore(tmp) dans les tests
     app.state.decode = decode_frame
 
     @app.get("/health")
@@ -79,6 +86,16 @@ def create_app() -> FastAPI:
     ) -> dict:
         return app.state.journal.stats(since=since, until=until, zone=zone)
 
+    @app.get("/events/{event_id}/snapshot")
+    def get_event_snapshot(event_id: int):
+        event = app.state.journal.event(event_id)
+        if event is None or event["snapshot"] is None:
+            raise HTTPException(status_code=404, detail="snapshot introuvable")
+        path = app.state.snapshots.path(event["snapshot"])
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="fichier snapshot absent")
+        return FileResponse(path, media_type="image/jpeg")
+
     @app.websocket("/ws/stream")
     async def stream(ws: WebSocket) -> None:
         await ws.accept()
@@ -98,9 +115,18 @@ def create_app() -> FastAPI:
                 except Exception as exc:  # une frame défaillante ne doit pas tuer le flux
                     await ws.send_json({"error": str(exc)})
                     continue
+                snapshot = None
+                if result.events:
+                    try:
+                        persons = [d.bbox for d in detections if d.cls == "person"]
+                        snapshot = await run_in_threadpool(
+                            app.state.snapshots.save, frame, persons)
+                    except Exception:
+                        snapshot = None  # preuve indisponible ne bloque pas le journal
                 try:
                     await run_in_threadpool(
-                        app.state.journal.record_frame, result, datetime.now(timezone.utc))
+                        app.state.journal.record_frame, result,
+                        datetime.now(timezone.utc), snapshot)
                 except Exception:
                     pass  # une panne de persistance ne doit pas tuer le flux live
                 await ws.send_json(frame_response(detections, result))
