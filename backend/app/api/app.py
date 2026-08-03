@@ -28,6 +28,11 @@ def create_app() -> FastAPI:
             from app.persistence.journal import Journal
 
             app.state.journal = Journal(os.environ.get("ARGUS_DB_PATH", "argus.db"))
+        if app.state.snapshots is None:
+            from app.evidence.snapshots import SnapshotStore
+
+            app.state.snapshots = SnapshotStore(
+                os.environ.get("ARGUS_SNAPSHOT_DIR", "snapshots"))
         yield
 
     app = FastAPI(title="Argus", lifespan=lifespan)
@@ -42,6 +47,7 @@ def create_app() -> FastAPI:
     app.state.zones_store = ZonesStore()
     app.state.detector = None            # remplacé par un stub dans les tests
     app.state.journal = None             # remplacé par un Journal(":memory:") dans les tests
+    app.state.snapshots = None           # remplacé par un SnapshotStore(tmp) dans les tests
     app.state.decode = decode_frame
 
     @app.get("/health")
@@ -98,9 +104,18 @@ def create_app() -> FastAPI:
                 except Exception as exc:  # une frame défaillante ne doit pas tuer le flux
                     await ws.send_json({"error": str(exc)})
                     continue
+                snapshot = None
+                if result.events:
+                    try:
+                        persons = [d.bbox for d in detections if d.cls == "person"]
+                        snapshot = await run_in_threadpool(
+                            app.state.snapshots.save, frame, persons)
+                    except Exception:
+                        snapshot = None  # preuve indisponible ne bloque pas le journal
                 try:
                     await run_in_threadpool(
-                        app.state.journal.record_frame, result, datetime.now(timezone.utc))
+                        app.state.journal.record_frame, result,
+                        datetime.now(timezone.utc), snapshot)
                 except Exception:
                     pass  # une panne de persistance ne doit pas tuer le flux live
                 await ws.send_json(frame_response(detections, result))
