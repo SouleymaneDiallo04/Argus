@@ -41,6 +41,7 @@ wandb/
 *.db
 snapshots/
 evidence/
+!/backend/app/evidence/
 
 # ===== Secrets & environnement =====
 .env
