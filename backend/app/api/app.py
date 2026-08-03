@@ -4,9 +4,10 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 
 from app.api.decode import decode_frame
@@ -84,6 +85,16 @@ def create_app() -> FastAPI:
         zone: str | None = None,
     ) -> dict:
         return app.state.journal.stats(since=since, until=until, zone=zone)
+
+    @app.get("/events/{event_id}/snapshot")
+    def get_event_snapshot(event_id: int):
+        event = app.state.journal.event(event_id)
+        if event is None or event["snapshot"] is None:
+            raise HTTPException(status_code=404, detail="snapshot introuvable")
+        path = app.state.snapshots.path(event["snapshot"])
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="fichier snapshot absent")
+        return FileResponse(path, media_type="image/jpeg")
 
     @app.websocket("/ws/stream")
     async def stream(ws: WebSocket) -> None:
