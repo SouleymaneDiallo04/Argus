@@ -21,4 +21,6 @@ test("Dashboard charge et affiche KPI + sections + journal", async () => {
   expect(screen.getAllByText("90%").length).toBeGreaterThan(0);          // taux affiché (KPI + zone)
   expect(screen.getByText(/conformité dans le temps/i)).toBeInTheDocument();
   expect(screen.getByText(/conformité par zone/i)).toBeInTheDocument();
+  expect(screen.getByText("CSV")).toHaveAttribute("href", expect.stringContaining("/reports/events.csv"));
+  expect(screen.getByText("PDF")).toHaveAttribute("href", expect.stringContaining("/reports/summary.pdf"));
 });
