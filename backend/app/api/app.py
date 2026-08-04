@@ -34,6 +34,10 @@ def create_app() -> FastAPI:
 
             app.state.snapshots = SnapshotStore(
                 os.environ.get("ARGUS_SNAPSHOT_DIR", "snapshots"))
+        if app.state.notifier is None:
+            from app.notify.factory import build_dispatcher
+
+            app.state.notifier = build_dispatcher()
         yield
 
     app = FastAPI(title="Argus", lifespan=lifespan)
@@ -49,6 +53,7 @@ def create_app() -> FastAPI:
     app.state.detector = None            # remplacé par un stub dans les tests
     app.state.journal = None             # remplacé par un Journal(":memory:") dans les tests
     app.state.snapshots = None           # remplacé par un SnapshotStore(tmp) dans les tests
+    app.state.notifier = None            # remplacé par un dispatcher espion dans les tests
     app.state.decode = decode_frame
 
     @app.get("/health")
@@ -129,6 +134,11 @@ def create_app() -> FastAPI:
                         datetime.now(timezone.utc), snapshot)
                 except Exception:
                     pass  # une panne de persistance ne doit pas tuer le flux live
+                for event in result.events:
+                    try:
+                        await run_in_threadpool(app.state.notifier.notify, event)
+                    except Exception:
+                        pass  # une panne de notification ne doit pas tuer le flux
                 await ws.send_json(frame_response(detections, result))
         except WebSocketDisconnect:
             return

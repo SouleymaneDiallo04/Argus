@@ -2,6 +2,15 @@
 
 Registre des décisions d'architecture non évidentes (ADR léger). Le plus récent en haut.
 
+## 2026-08-04 — P3-c : notifier sur chaque infraction confirmée (pas de routage par sévérité serveur)
+**Contexte.** La sévérité vit côté front (`localStorage`), jamais côté serveur (décision P3-a).
+Router les notifications « par sévérité » exigerait de la réintroduire côté serveur.
+**Décision.** On notifie (email + Teams, fan-out webhook-first) sur chaque `ViolationEvent`
+confirmé ; le **debounce (3 s) + cooldown (30 s/personne)** du moteur est le filtre anti-flood
+(esprit **ISA-18.2**). Envoi non bloquant (`run_in_threadpool`), no-op si non configuré.
+**Conséquence.** Aucune duplication du modèle de risque côté serveur. Escalade/astreinte,
+acquittement, SMS et passerelle MQTT/OPC-UA→PLC restent en V2.
+
 ## 2026-08-01 — P3-b : floutage RGPD par heuristique région-tête (pas de détecteur de visage)
 **Contexte.** Le floutage des preuves exige de localiser la tête, mais le modèle n'a pas de
 classe tête/visage. Un détecteur de visage (Haar/DNN) échoue précisément sur casque, angle
