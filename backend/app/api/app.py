@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import ValidationError
 
 from app.api.decode import decode_frame
@@ -100,6 +100,40 @@ def create_app() -> FastAPI:
         if not os.path.exists(path):
             raise HTTPException(status_code=404, detail="fichier snapshot absent")
         return FileResponse(path, media_type="image/jpeg")
+
+    @app.get("/reports/events.csv")
+    def report_events_csv(
+        zone: str | None = None,
+        ppe: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> Response:
+        from app.reports.csv_report import events_csv
+
+        events = app.state.journal.events(
+            zone=zone, ppe=ppe, since=since, until=until, limit=1000)
+        return Response(
+            content=events_csv(events), media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="argus-events.csv"'})
+
+    @app.get("/reports/summary.pdf")
+    def report_summary_pdf(
+        since: str | None = None,
+        until: str | None = None,
+        zone: str | None = None,
+    ) -> Response:
+        from app.reports.pdf_report import summary_pdf
+
+        stats = app.state.journal.stats(since=since, until=until, zone=zone)
+        events = app.state.journal.events(zone=zone, since=since, until=until, limit=1000)
+        meta = {
+            "site": os.environ.get("ARGUS_SITE", "Meknès-Nord"),
+            "since": since, "until": until,
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        }
+        return Response(
+            content=summary_pdf(stats, events, meta), media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="argus-rapport.pdf"'})
 
     @app.websocket("/ws/stream")
     async def stream(ws: WebSocket) -> None:

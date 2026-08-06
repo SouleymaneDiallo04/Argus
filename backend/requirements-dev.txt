@@ -3,3 +3,4 @@ fastapi
 httpx
 opencv-python-headless
 numpy
+reportlab

@@ -8,6 +8,7 @@ import { ConformityTrend } from "@/components/charts/ConformityTrend";
 import { ZoneBreakdown } from "@/components/charts/ZoneBreakdown";
 import { JournalTable } from "./JournalTable";
 import { DashboardFilters, type DashFilters } from "./DashboardFilters";
+import { reportUrl } from "@/lib/reportsApi";
 
 const REFRESH_MS = 15000;
 
@@ -57,6 +58,12 @@ export function Dashboard({
 
   const h2 = "mb-2 text-[11px] font-bold uppercase tracking-[.12em] text-ink3";
   const card = "rounded-[10px] border border-line bg-s1 p-3";
+  const exportParams = {
+    zone: filters.zone || undefined,
+    ppe: filters.ppe || undefined,
+    since: sinceFor(filters.range),
+  };
+  const exportLink = "rounded-lg border border-line2 px-3 py-1.5 text-[12px] font-bold text-ink hover:bg-s2";
 
   return (
     <div className="flex min-h-0 flex-col gap-3.5 overflow-y-auto p-3.5">
@@ -75,10 +82,10 @@ export function Dashboard({
       <section className={card}>
         <div className="mb-2 flex items-center justify-between">
           <h2 className={h2 + " mb-0"}>Journal d&apos;infractions</h2>
-          <button disabled title="Rapports — P3-d"
-                  className="cursor-not-allowed rounded-lg border border-line2 px-3 py-1.5 text-[12px] font-bold text-ink3 opacity-50">
-            Exporter
-          </button>
+          <div className="flex gap-1.5">
+            <a href={reportUrl("csv", exportParams)} download className={exportLink}>CSV</a>
+            <a href={reportUrl("pdf", exportParams)} download className={exportLink}>PDF</a>
+          </div>
         </div>
         <JournalTable events={events} />
       </section>
