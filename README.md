@@ -41,6 +41,25 @@ Trois composants à responsabilité unique :
 
 `YOLOv8 / PyTorch` · `ONNX Runtime` · `OpenCV / ByteTrack` · `FastAPI` · `SQLite` · `Next.js` · `Docker`
 
+## Lancer avec Docker
+
+Prérequis : Docker + Docker Compose. Le modèle `best.pt` doit être présent à la racine du dépôt.
+
+```bash
+docker compose up --build
+```
+
+- Console : http://localhost:3000
+- Dashboard : http://localhost:3000/dashboard
+- API : http://localhost:8000 (`/health`, `/events`, `/stats`, `/reports/events.csv`, `/reports/summary.pdf`)
+
+Les preuves floutées (RGPD) et la base SQLite sont persistées dans le volume `argus-data`
+(monté sur `/data` dans le conteneur backend) — elles survivent à `docker compose down`.
+Images **CPU-only** (aucun GPU requis).
+
+Notifications (optionnel) : ajouter `ARGUS_TEAMS_WEBHOOK`, `ARGUS_SMTP_*` et `ARGUS_PUBLIC_URL`
+dans la section `environment` du service `backend` de `docker-compose.yml`.
+
 ## Structure du dépôt
 
 ```
@@ -49,7 +68,7 @@ argus/
   backend/     # FastAPI : inférence, logique métier, tests
   frontend/    # Next.js : UI, overlays, éditeur de zones, dashboard
   data/        # scripts de fusion / harmonisation des datasets
-  docker/      # Dockerfiles + docker-compose
+  backend/Dockerfile · frontend/Dockerfile · docker-compose.yml
   docs/        # spec de conception, décisions, rapport d'évaluation
 ```
 

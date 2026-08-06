@@ -1,0 +1,19 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports: ["8000:8000"]
+    environment:
+      - ARGUS_CORS_ORIGINS=http://localhost:3000
+    volumes:
+      - argus-data:/data
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_ARGUS_API: http://localhost:8000
+    ports: ["3000:3000"]
+    depends_on: [backend]
+volumes:
+  argus-data:

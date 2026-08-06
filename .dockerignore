@@ -1,0 +1,14 @@
+**/__pycache__/
+**/*.pyc
+.git/
+.github/
+docs/
+*.db
+*.db-wal
+*.db-shm
+snapshots/
+*.log
+.venv/
+backend/.pytest_cache/
+frontend/node_modules/
+frontend/.next/
