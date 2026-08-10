@@ -2,6 +2,16 @@
 
 Registre des décisions d'architecture non évidentes (ADR léger). Le plus récent en haut.
 
+## 2026-08-06 — RTSP : ingestion serveur headless, source unique (V1)
+**Contexte.** Le cahier des charges demande « 1 RTSP ». Le navigateur ne lit pas le RTSP ;
+le serveur doit tirer le flux. Le modèle YOLO + tracker est partagé et non concurrent-safe.
+**Décision.** Worker serveur en thread (`cv2.VideoCapture`) qui alimente le pipeline via le
+**sink partagé** (`ingest_frame`) → journal/preuves/notifications visibles dans le **dashboard**
+(headless, pas de vidéo live). Contrôle REST (`/sources/rtsp`), **un seul flux à la fois**.
+**Conséquence.** RTSP et la console live WS ne doivent pas tourner en même temps (tracks
+mélangées) ; multi-caméras + vue annotée live = V2. Lectures du `Journal` verrouillées
+(worker écrit / API lit sur la même connexion sqlite).
+
 ## 2026-08-04 — P3-c : notifier sur chaque infraction confirmée (pas de routage par sévérité serveur)
 **Contexte.** La sévérité vit côté front (`localStorage`), jamais côté serveur (décision P3-a).
 Router les notifications « par sévérité » exigerait de la réintroduire côté serveur.
