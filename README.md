@@ -60,6 +60,26 @@ Images **CPU-only** (aucun GPU requis).
 Notifications (optionnel) : ajouter `ARGUS_TEAMS_WEBHOOK`, `ARGUS_SMTP_*` et `ARGUS_PUBLIC_URL`
 dans la section `environment` du service `backend` de `docker-compose.yml`.
 
+## Flux RTSP (caméra IP)
+
+Le backend peut ingérer un flux RTSP côté serveur (headless — résultats visibles dans le
+dashboard). Un seul flux à la fois.
+
+```bash
+# démarrer
+curl -X POST localhost:8000/sources/rtsp \
+  -H 'content-type: application/json' -d '{"url":"rtsp://user:pass@camera/stream"}'
+# statut / arrêt
+curl localhost:8000/sources/rtsp
+curl -X DELETE localhost:8000/sources/rtsp
+```
+
+Tester sans caméra réelle (MediaMTX + ffmpeg qui boucle une vidéo) :
+
+```bash
+ffmpeg -re -stream_loop -1 -i demo.mp4 -c copy -f rtsp rtsp://localhost:8554/cam
+```
+
 ## Structure du dépôt
 
 ```

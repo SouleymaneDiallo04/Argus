@@ -11,8 +11,10 @@ from fastapi.responses import FileResponse, Response
 from pydantic import ValidationError
 
 from app.api.decode import decode_frame
-from app.api.schemas import FrameMessage, ZonesConfig, frame_response
+from app.api.schemas import FrameMessage, RtspSource, ZonesConfig, frame_response
 from app.api.zones_store import ZonesStore
+from app.ingest.frame_sink import ingest_frame
+from app.ingest.rtsp_worker import RtspWorker
 from app.pipeline import FramePipeline
 
 
@@ -54,6 +56,8 @@ def create_app() -> FastAPI:
     app.state.journal = None             # remplacé par un Journal(":memory:") dans les tests
     app.state.snapshots = None           # remplacé par un SnapshotStore(tmp) dans les tests
     app.state.notifier = None            # remplacé par un dispatcher espion dans les tests
+    app.state.rtsp = None                # worker RTSP courant (un seul flux)
+    app.state.rtsp_capture_factory = None  # None -> cv2.VideoCapture ; injecté en test
     app.state.decode = decode_frame
 
     @app.get("/health")
@@ -135,6 +139,39 @@ def create_app() -> FastAPI:
             content=summary_pdf(stats, events, meta), media_type="application/pdf",
             headers={"Content-Disposition": 'attachment; filename="argus-rapport.pdf"'})
 
+    @app.post("/sources/rtsp")
+    def start_rtsp(source: RtspSource) -> dict:
+        if app.state.rtsp is not None:
+            app.state.rtsp.stop()
+        app.state.detector.reset()
+        pipeline = FramePipeline(
+            app.state.detector, app.state.zones_store.get_zones(), camera="rtsp")
+
+        def handle(frame, ts):
+            detections, result = pipeline.process(frame, ts)
+            ingest_frame(app.state.journal, app.state.snapshots, app.state.notifier,
+                         frame, detections, result, datetime.now(timezone.utc))
+
+        factory = app.state.rtsp_capture_factory
+        if factory is None:
+            import cv2
+            factory = cv2.VideoCapture
+        worker = RtspWorker(source.url, handle, capture_factory=factory)
+        worker.start()
+        app.state.rtsp = worker
+        return worker.status()
+
+    @app.delete("/sources/rtsp")
+    def stop_rtsp() -> dict:
+        if app.state.rtsp is not None:
+            app.state.rtsp.stop()
+            app.state.rtsp = None
+        return {"stopped": True}
+
+    @app.get("/sources/rtsp")
+    def rtsp_status() -> dict:
+        return app.state.rtsp.status() if app.state.rtsp is not None else {"running": False}
+
     @app.websocket("/ws/stream")
     async def stream(ws: WebSocket) -> None:
         await ws.accept()
@@ -154,25 +191,10 @@ def create_app() -> FastAPI:
                 except Exception as exc:  # une frame défaillante ne doit pas tuer le flux
                     await ws.send_json({"error": str(exc)})
                     continue
-                snapshot = None
-                if result.events:
-                    try:
-                        persons = [d.bbox for d in detections if d.cls == "person"]
-                        snapshot = await run_in_threadpool(
-                            app.state.snapshots.save, frame, persons)
-                    except Exception:
-                        snapshot = None  # preuve indisponible ne bloque pas le journal
-                try:
-                    await run_in_threadpool(
-                        app.state.journal.record_frame, result,
-                        datetime.now(timezone.utc), snapshot)
-                except Exception:
-                    pass  # une panne de persistance ne doit pas tuer le flux live
-                for event in result.events:
-                    try:
-                        await run_in_threadpool(app.state.notifier.notify, event)
-                    except Exception:
-                        pass  # une panne de notification ne doit pas tuer le flux
+                await run_in_threadpool(
+                    ingest_frame, app.state.journal, app.state.snapshots,
+                    app.state.notifier, frame, detections, result,
+                    datetime.now(timezone.utc))
                 await ws.send_json(frame_response(detections, result))
         except WebSocketDisconnect:
             return

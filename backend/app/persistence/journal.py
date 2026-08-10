@@ -103,28 +103,6 @@ class Journal:
             obs_clauses.append("bucket <= ?"); obs_params.append(until[:16])
         obs_where = " WHERE " + " AND ".join(obs_clauses)
 
-        g = self._conn.execute(
-            f"SELECT COALESCE(SUM(person_frames), 0) pf, "
-            f"COALESCE(SUM(compliant_frames), 0) cf FROM observations{obs_where}",
-            obs_params,
-        ).fetchone()
-        global_stat = _rate_row(g["pf"], g["cf"])
-
-        by_zone = [
-            {"zone": r["zone"], **_rate_row(r["pf"], r["cf"])}
-            for r in self._conn.execute(
-                f"SELECT zone, SUM(person_frames) pf, SUM(compliant_frames) cf "
-                f"FROM observations{obs_where} GROUP BY zone ORDER BY zone", obs_params,
-            ).fetchall()
-        ]
-        over_time = [
-            {"bucket": r["bucket"], **_rate_row(r["pf"], r["cf"])}
-            for r in self._conn.execute(
-                f"SELECT bucket, SUM(person_frames) pf, SUM(compliant_frames) cf "
-                f"FROM observations{obs_where} GROUP BY bucket ORDER BY bucket", obs_params,
-            ).fetchall()
-        ]
-
         ev_clauses, ev_params = [], []
         if zone is not None:
             ev_clauses.append("zone = ?"); ev_params.append(zone)
@@ -133,14 +111,31 @@ class Journal:
         if until is not None:
             ev_clauses.append("ts <= ?"); ev_params.append(until)
         ev_where = (" WHERE " + " AND ".join(ev_clauses)) if ev_clauses else ""
-        total = self._conn.execute(
-            f"SELECT COUNT(*) n FROM events{ev_where}", ev_params).fetchone()["n"]
-        by_zone_v = {
-            r["zone"]: r["n"]
-            for r in self._conn.execute(
+
+        with self._lock:  # le worker RTSP écrit dans un autre thread sur la même connexion
+            g = self._conn.execute(
+                f"SELECT COALESCE(SUM(person_frames), 0) pf, "
+                f"COALESCE(SUM(compliant_frames), 0) cf FROM observations{obs_where}",
+                obs_params,
+            ).fetchone()
+            by_zone_rows = self._conn.execute(
+                f"SELECT zone, SUM(person_frames) pf, SUM(compliant_frames) cf "
+                f"FROM observations{obs_where} GROUP BY zone ORDER BY zone", obs_params,
+            ).fetchall()
+            over_time_rows = self._conn.execute(
+                f"SELECT bucket, SUM(person_frames) pf, SUM(compliant_frames) cf "
+                f"FROM observations{obs_where} GROUP BY bucket ORDER BY bucket", obs_params,
+            ).fetchall()
+            total = self._conn.execute(
+                f"SELECT COUNT(*) n FROM events{ev_where}", ev_params).fetchone()["n"]
+            by_zone_v_rows = self._conn.execute(
                 f"SELECT zone, COUNT(*) n FROM events{ev_where} GROUP BY zone", ev_params,
             ).fetchall()
-        }
+
+        global_stat = _rate_row(g["pf"], g["cf"])
+        by_zone = [{"zone": r["zone"], **_rate_row(r["pf"], r["cf"])} for r in by_zone_rows]
+        over_time = [{"bucket": r["bucket"], **_rate_row(r["pf"], r["cf"])} for r in over_time_rows]
+        by_zone_v = {r["zone"]: r["n"] for r in by_zone_v_rows}
         return {"global": global_stat, "by_zone": by_zone,
                 "over_time": over_time,
                 "violations": {"total": total, "by_zone": by_zone_v}}
@@ -160,11 +155,12 @@ class Journal:
             clauses.append("camera = ?"); params.append(camera)
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         limit = max(1, min(int(limit), 1000))
-        rows = self._conn.execute(
-            f"SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot FROM events"
-            f"{where} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?",
-            (*params, limit, int(offset)),
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot FROM events"
+                f"{where} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?",
+                (*params, limit, int(offset)),
+            ).fetchall()
         return [
             {"id": r["id"], "ts": r["ts"], "stream_ts": r["stream_ts"],
              "camera": r["camera"], "zone": r["zone"], "track_id": r["track_id"],
@@ -173,10 +169,11 @@ class Journal:
         ]
 
     def event(self, event_id: int) -> dict | None:
-        r = self._conn.execute(
-            "SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot "
-            "FROM events WHERE id = ?", (event_id,),
-        ).fetchone()
+        with self._lock:
+            r = self._conn.execute(
+                "SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot "
+                "FROM events WHERE id = ?", (event_id,),
+            ).fetchone()
         if r is None:
             return None
         return {"id": r["id"], "ts": r["ts"], "stream_ts": r["stream_ts"],
