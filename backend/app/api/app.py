@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from app.api.decode import decode_frame
 from app.api.schemas import FrameMessage, ZonesConfig, frame_response
 from app.api.zones_store import ZonesStore
+from app.ingest.frame_sink import ingest_frame
 from app.pipeline import FramePipeline
 
 
@@ -154,25 +155,10 @@ def create_app() -> FastAPI:
                 except Exception as exc:  # une frame défaillante ne doit pas tuer le flux
                     await ws.send_json({"error": str(exc)})
                     continue
-                snapshot = None
-                if result.events:
-                    try:
-                        persons = [d.bbox for d in detections if d.cls == "person"]
-                        snapshot = await run_in_threadpool(
-                            app.state.snapshots.save, frame, persons)
-                    except Exception:
-                        snapshot = None  # preuve indisponible ne bloque pas le journal
-                try:
-                    await run_in_threadpool(
-                        app.state.journal.record_frame, result,
-                        datetime.now(timezone.utc), snapshot)
-                except Exception:
-                    pass  # une panne de persistance ne doit pas tuer le flux live
-                for event in result.events:
-                    try:
-                        await run_in_threadpool(app.state.notifier.notify, event)
-                    except Exception:
-                        pass  # une panne de notification ne doit pas tuer le flux
+                await run_in_threadpool(
+                    ingest_frame, app.state.journal, app.state.snapshots,
+                    app.state.notifier, frame, detections, result,
+                    datetime.now(timezone.utc))
                 await ws.send_json(frame_response(detections, result))
         except WebSocketDisconnect:
             return
