@@ -9,6 +9,7 @@ import { ConformityTrend } from "@/components/charts/ConformityTrend";
 import { ZoneBreakdown } from "@/components/charts/ZoneBreakdown";
 import { JournalTable } from "./JournalTable";
 import { DashboardFilters, type DashFilters } from "./DashboardFilters";
+import { RtspControl } from "./RtspControl";
 import { reportUrl } from "@/lib/reportsApi";
 
 const REFRESH_MS = 15000;
@@ -73,6 +74,7 @@ export function Dashboard({
 
   return (
     <div className="flex min-h-0 flex-col gap-3.5 overflow-y-auto p-3.5">
+      <RtspControl />
       <DashboardFilters filters={filters} onChange={setFilters} />
       <KpiRow stats={stats} lastUpdated={lastUpdated} />
       <div className="grid grid-cols-2 gap-3.5">
