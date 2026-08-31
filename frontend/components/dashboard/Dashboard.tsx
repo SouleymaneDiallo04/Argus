@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getStats, type Stats } from "@/lib/statsApi";
-import { getEvents, type ApiEvent } from "@/lib/eventsApi";
+import { getEvents, setEventStatus, type ApiEvent } from "@/lib/eventsApi";
+import type { AlertStatus } from "@/components/ui/StatusBadge";
 import { KpiRow } from "./KpiRow";
 import { ConformityTrend } from "@/components/charts/ConformityTrend";
 import { ZoneBreakdown } from "@/components/charts/ZoneBreakdown";
@@ -25,7 +26,7 @@ export function Dashboard({
   loadStats?: typeof getStats;
   loadEvents?: typeof getEvents;
 }) {
-  const [filters, setFilters] = useState<DashFilters>({ zone: "", ppe: "", range: "day" });
+  const [filters, setFilters] = useState<DashFilters>({ zone: "", ppe: "", range: "day", status: "" });
   const [stats, setStats] = useState<Stats | null>(null);
   const [events, setEvents] = useState<ApiEvent[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -39,7 +40,8 @@ export function Dashboard({
     try {
       const [s, e] = await Promise.all([
         loadStats({ zone, since }),
-        loadEvents({ zone, since, ppe: f.ppe || undefined, limit: 100 }),
+        loadEvents({ zone, since, ppe: f.ppe || undefined,
+                    status: f.status || undefined, limit: 100 }),
       ]);
       setStats(s);
       setEvents(e);
@@ -48,6 +50,10 @@ export function Dashboard({
       /* garde les dernières données */
     }
   }, [loadStats, loadEvents]);
+
+  const onSetStatus = useCallback(async (id: number, status: AlertStatus) => {
+    try { await setEventStatus(id, status); await refresh(); } catch { /* ignore */ }
+  }, [refresh]);
 
   useEffect(() => { refresh(); }, [refresh, filters]);
 
@@ -87,7 +93,7 @@ export function Dashboard({
             <a href={reportUrl("pdf", exportParams)} download className={exportLink}>PDF</a>
           </div>
         </div>
-        <JournalTable events={events} />
+        <JournalTable events={events} onSetStatus={onSetStatus} />
       </section>
     </div>
   );

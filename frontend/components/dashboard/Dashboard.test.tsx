@@ -11,7 +11,8 @@ const stats: Stats = {
 };
 const events: ApiEvent[] = [
   { id: 1, ts: "2026-08-04T12:00:00+00:00", stream_ts: 0, camera: "c",
-    zone: "Fonderie", track_id: 37, missing: ["helmet"], snapshot: "a.jpg" },
+    zone: "Fonderie", track_id: 37, missing: ["helmet"], snapshot: "a.jpg",
+    status: "active" },
 ];
 
 test("Dashboard charge et affiche KPI + sections + journal", async () => {
