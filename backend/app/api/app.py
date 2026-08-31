@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import ValidationError
 
 from app.api.decode import decode_frame
-from app.api.schemas import FrameMessage, RtspSource, ZonesConfig, frame_response
+from app.api.schemas import FrameMessage, RtspSource, StatusUpdate, ZonesConfig, frame_response
 from app.api.zones_store import ZonesStore
 from app.ingest.frame_sink import ingest_frame
 from app.ingest.rtsp_worker import RtspWorker
@@ -80,12 +80,21 @@ def create_app() -> FastAPI:
         since: str | None = None,
         until: str | None = None,
         camera: str | None = None,
+        status: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> dict:
         return {"events": app.state.journal.events(
             zone=zone, ppe=ppe, since=since, until=until,
-            camera=camera, limit=limit, offset=offset)}
+            camera=camera, status=status, limit=limit, offset=offset)}
+
+    @app.post("/events/{event_id}/status")
+    def set_event_status(event_id: int, body: StatusUpdate) -> dict:
+        if body.status not in {"active", "ack", "resolved"}:
+            raise HTTPException(status_code=422, detail="statut invalide")
+        if not app.state.journal.set_status(event_id, body.status):
+            raise HTTPException(status_code=404, detail="event introuvable")
+        return app.state.journal.event(event_id)
 
     @app.get("/stats")
     def get_stats(

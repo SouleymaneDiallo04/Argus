@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS events (
     zone TEXT,
     track_id INTEGER NOT NULL,
     missing TEXT NOT NULL,
-    snapshot TEXT
+    snapshot TEXT,
+    status TEXT NOT NULL DEFAULT 'active'
 );
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_events_zone ON events(zone);
@@ -49,6 +50,11 @@ class Journal:
             self._conn.execute("ALTER TABLE events ADD COLUMN snapshot TEXT")
         except sqlite3.OperationalError:
             pass  # colonne déjà présente (DB créée avant P3-b)
+        try:
+            self._conn.execute(
+                "ALTER TABLE events ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
+        except sqlite3.OperationalError:
+            pass  # colonne déjà présente (DB créée avant V1.5)
         self._conn.commit()
 
     # --- écriture ---
@@ -62,6 +68,13 @@ class Journal:
                  event.track_id, json.dumps(sorted(event.missing)), snapshot),
             )
             self._conn.commit()
+
+    def set_status(self, event_id: int, status: str) -> bool:
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE events SET status = ? WHERE id = ?", (status, event_id))
+            self._conn.commit()
+            return cur.rowcount > 0
 
     def record_observations(self, bucket: str, zone: str,
                             person_frames: int, compliant_frames: int) -> None:
@@ -141,7 +154,7 @@ class Journal:
                 "violations": {"total": total, "by_zone": by_zone_v}}
 
     def events(self, *, zone=None, ppe=None, since=None, until=None, camera=None,
-               limit=100, offset=0) -> list[dict]:
+               status=None, limit=100, offset=0) -> list[dict]:
         clauses, params = [], []
         if zone is not None:
             clauses.append("zone = ?"); params.append(zone)
@@ -153,29 +166,33 @@ class Journal:
             clauses.append("ts <= ?"); params.append(until)
         if camera is not None:
             clauses.append("camera = ?"); params.append(camera)
+        if status is not None:
+            clauses.append("status = ?"); params.append(status)
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         limit = max(1, min(int(limit), 1000))
         with self._lock:
             rows = self._conn.execute(
-                f"SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot FROM events"
-                f"{where} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?",
+                f"SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot, status "
+                f"FROM events{where} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?",
                 (*params, limit, int(offset)),
             ).fetchall()
         return [
             {"id": r["id"], "ts": r["ts"], "stream_ts": r["stream_ts"],
              "camera": r["camera"], "zone": r["zone"], "track_id": r["track_id"],
-             "missing": json.loads(r["missing"]), "snapshot": r["snapshot"]}
+             "missing": json.loads(r["missing"]), "snapshot": r["snapshot"],
+             "status": r["status"]}
             for r in rows
         ]
 
     def event(self, event_id: int) -> dict | None:
         with self._lock:
             r = self._conn.execute(
-                "SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot "
+                "SELECT id, ts, stream_ts, camera, zone, track_id, missing, snapshot, status "
                 "FROM events WHERE id = ?", (event_id,),
             ).fetchone()
         if r is None:
             return None
         return {"id": r["id"], "ts": r["ts"], "stream_ts": r["stream_ts"],
                 "camera": r["camera"], "zone": r["zone"], "track_id": r["track_id"],
-                "missing": json.loads(r["missing"]), "snapshot": r["snapshot"]}
+                "missing": json.loads(r["missing"]), "snapshot": r["snapshot"],
+                "status": r["status"]}
