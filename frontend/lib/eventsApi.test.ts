@@ -1,4 +1,17 @@
-import { getEvents, snapshotUrl } from "./eventsApi";
+import { getEvents, setEventStatus, snapshotUrl } from "./eventsApi";
+
+test("setEventStatus poste le statut", async () => {
+  let url = "";
+  let init: RequestInit | undefined;
+  const fetchFn = (async (u: string, i?: RequestInit) => {
+    url = u; init = i;
+    return { ok: true, status: 200, json: async () => ({}) } as Response;
+  }) as typeof fetch;
+  await setEventStatus(1, "ack", fetchFn);
+  expect(url).toContain("/events/1/status");
+  expect(init?.method).toBe("POST");
+  expect(JSON.parse(init?.body as string)).toEqual({ status: "ack" });
+});
 
 test("getEvents renvoie la liste et passe les filtres", async () => {
   let url = "";
