@@ -119,3 +119,23 @@ def test_record_frame_attaches_snapshot():
                          events=[_ev(1, "Z", ["helmet"])])
     j.record_frame(result, _ts(30), snapshot="snap.jpg")
     assert j.events()[0]["snapshot"] == "snap.jpg"
+
+
+def test_event_status_defaults_active_and_set_status():
+    j = Journal(":memory:")
+    j.record_event(_ev(1, "Z", ["helmet"]), _ts(30))
+    row_id = j.events()[0]["id"]
+    assert j.events()[0]["status"] == "active"
+    assert j.set_status(row_id, "ack") is True
+    assert j.event(row_id)["status"] == "ack"
+    assert j.set_status(9999, "resolved") is False
+
+
+def test_events_filter_by_status():
+    j = Journal(":memory:")
+    j.record_event(_ev(1, "Z", ["helmet"]), _ts(30))
+    j.record_event(_ev(2, "Z", ["mask"]), _ts(31))
+    second = j.events()[0]["id"]
+    j.set_status(second, "resolved")
+    assert [e["status"] for e in j.events(status="active")] == ["active"]
+    assert [e["status"] for e in j.events(status="resolved")] == ["resolved"]
