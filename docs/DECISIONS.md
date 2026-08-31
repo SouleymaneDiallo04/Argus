@@ -2,6 +2,14 @@
 
 Registre des décisions d'architecture non évidentes (ADR léger). Le plus récent en haut.
 
+## 2026-08-31 — V1.5 : acquittement des alertes anonyme (identité en V2)
+**Contexte.** Cycle de vie des infractions (active/ack/resolved) attendu (ISA-18.2), mais pas
+d'authentification en V1.
+**Décision.** Le statut est persisté sur l'event et modifiable via `POST /events/{id}/status` ;
+l'acquittement est **anonyme** (pas de `acked_by`). Transitions libres entre les trois statuts.
+**Conséquence.** L'auth V2 ajoutera l'identité de l'opérateur (qui a acquitté/résolu) et,
+si besoin, des transitions contrôlées.
+
 ## 2026-08-06 — RTSP : ingestion serveur headless, source unique (V1)
 **Contexte.** Le cahier des charges demande « 1 RTSP ». Le navigateur ne lit pas le RTSP ;
 le serveur doit tirer le flux. Le modèle YOLO + tracker est partagé et non concurrent-safe.
