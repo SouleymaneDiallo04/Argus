@@ -42,3 +42,38 @@ def test_login_bad_credentials():
 
 def test_me_requires_token():
     assert _auth_client().get("/auth/me").status_code == 401
+
+
+def _zone_payload():
+    return {"zones": [{"name": "z", "polygon": [[0, 0], [10, 0], [10, 10]],
+                       "required_ppe": ["helmet"]}]}
+
+
+def test_write_endpoints_enforce_roles():
+    client = _auth_client()
+    assert client.put("/zones", json=_zone_payload()).status_code == 401
+    hse = {"Authorization": f"Bearer {_token(client, 'hse')}"}
+    assert client.put("/zones", json=_zone_payload(), headers=hse).status_code == 403
+    admin = {"Authorization": f"Bearer {_token(client, 'admin')}"}
+    assert client.put("/zones", json=_zone_payload(), headers=admin).status_code == 200
+
+
+def test_ack_records_operator():
+    from datetime import datetime, timezone
+    from app.domain.types import ViolationEvent
+    client = _auth_client()
+    client.app.state.journal.record_event(
+        ViolationEvent(1, "Z", frozenset({"helmet"}), 0.0, "cam-1"),
+        datetime(2026, 8, 31, 12, 0, tzinfo=timezone.utc))
+    eid = client.get("/events").json()["events"][0]["id"]
+    hse = {"Authorization": f"Bearer {_token(client, 'hse')}"}
+    r = client.post(f"/events/{eid}/status", json={"status": "ack"}, headers=hse)
+    assert r.status_code == 200 and r.json()["acked_by"] == "hse"
+
+
+def test_auth_disabled_leaves_endpoints_open():
+    app = create_app()
+    app.state.detector = object()
+    app.state.decode = lambda b: b
+    client = TestClient(app)  # pas de user_store -> auth désactivée
+    assert client.put("/zones", json=_zone_payload()).status_code == 200

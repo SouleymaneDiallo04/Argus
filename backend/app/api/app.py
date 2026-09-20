@@ -92,7 +92,8 @@ def create_app() -> FastAPI:
         return app.state.zones_store.to_config()
 
     @app.put("/zones")
-    def put_zones(config: ZonesConfig) -> ZonesConfig:
+    def put_zones(config: ZonesConfig,
+                  user: User = Depends(require_role("admin"))) -> ZonesConfig:
         app.state.zones_store.set_from_config(config)
         return app.state.zones_store.to_config()
 
@@ -112,10 +113,11 @@ def create_app() -> FastAPI:
             camera=camera, status=status, limit=limit, offset=offset)}
 
     @app.post("/events/{event_id}/status")
-    def set_event_status(event_id: int, body: StatusUpdate) -> dict:
+    def set_event_status(event_id: int, body: StatusUpdate,
+                         user: User = Depends(require_role("hse"))) -> dict:
         if body.status not in {"active", "ack", "resolved"}:
             raise HTTPException(status_code=422, detail="statut invalide")
-        if not app.state.journal.set_status(event_id, body.status):
+        if not app.state.journal.set_status(event_id, body.status, acked_by=user.username):
             raise HTTPException(status_code=404, detail="event introuvable")
         return app.state.journal.event(event_id)
 
@@ -172,7 +174,8 @@ def create_app() -> FastAPI:
             headers={"Content-Disposition": 'attachment; filename="argus-rapport.pdf"'})
 
     @app.post("/sources/rtsp")
-    def start_rtsp(source: RtspSource) -> dict:
+    def start_rtsp(source: RtspSource,
+                   user: User = Depends(require_role("admin"))) -> dict:
         if app.state.rtsp is not None:
             app.state.rtsp.stop()
         app.state.detector.reset()
@@ -194,7 +197,7 @@ def create_app() -> FastAPI:
         return worker.status()
 
     @app.delete("/sources/rtsp")
-    def stop_rtsp() -> dict:
+    def stop_rtsp(user: User = Depends(require_role("admin"))) -> dict:
         if app.state.rtsp is not None:
             app.state.rtsp.stop()
             app.state.rtsp = None
