@@ -2,6 +2,15 @@
 
 Registre des décisions d'architecture non évidentes (ADR léger). Le plus récent en haut.
 
+## 2026-08-31 — V2 : auth opt-in (JWT pyjwt, rôles admin/hse, protection écriture)
+**Contexte.** Passage d'un POC ouvert à un outil multi-utilisateur, sans casser la démo.
+**Décision.** Auth **opt-in** : active seulement si `ARGUS_JWT_SECRET` + mots de passe
+configurés (sinon endpoints ouverts). JWT HS256 via **pyjwt** ; mots de passe **pbkdf2**
+(stdlib) ; utilisateurs seedés depuis l'env (pas de table). `admin` super-utilisateur ;
+`hse` = voir + acquitter. Cet incrément protège l'**écriture/config** ; reads + WS restent
+ouverts (auth des reads/WS + login UI = incréments suivants). L'ack enregistre `acked_by`.
+**Conséquence.** Compat V1 préservée ; comble la note « ack anonyme » de V1.5.
+
 ## 2026-08-31 — V1.5 : acquittement des alertes anonyme (identité en V2)
 **Contexte.** Cycle de vie des infractions (active/ack/resolved) attendu (ISA-18.2), mais pas
 d'authentification en V1.
