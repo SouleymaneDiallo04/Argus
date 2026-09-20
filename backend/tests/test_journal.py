@@ -139,3 +139,21 @@ def test_events_filter_by_status():
     j.set_status(second, "resolved")
     assert [e["status"] for e in j.events(status="active")] == ["active"]
     assert [e["status"] for e in j.events(status="resolved")] == ["resolved"]
+
+
+def test_set_status_records_acked_by():
+    j = Journal(":memory:")
+    j.record_event(_ev(1, "Z", ["helmet"]), _ts(30))
+    row_id = j.events()[0]["id"]
+    j.set_status(row_id, "ack", acked_by="alice")
+    assert j.event(row_id)["acked_by"] == "alice"
+    assert j.events()[0]["acked_by"] == "alice"
+
+
+def test_set_status_records_acked_by():
+    j = Journal(":memory:")
+    j.record_event(_ev(1, "Z", ["helmet"]), _ts(30))
+    row_id = j.events()[0]["id"]
+    j.set_status(row_id, "ack", acked_by="alice")
+    assert j.event(row_id)["acked_by"] == "alice"
+    assert j.events()[0]["acked_by"] == "alice"
