@@ -1,10 +1,10 @@
-import { API } from "./http";
+import { API, authFetch } from "./http";
 
 export type RtspStatus = {
   running: boolean; url?: string; frames?: number; error?: string | null;
 };
 
-export async function startRtsp(url: string, fetchFn: typeof fetch = fetch): Promise<RtspStatus> {
+export async function startRtsp(url: string, fetchFn: typeof fetch = authFetch): Promise<RtspStatus> {
   const res = await fetchFn(`${API}/sources/rtsp`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -14,7 +14,7 @@ export async function startRtsp(url: string, fetchFn: typeof fetch = fetch): Pro
   return (await res.json()) as RtspStatus;
 }
 
-export async function stopRtsp(fetchFn: typeof fetch = fetch): Promise<void> {
+export async function stopRtsp(fetchFn: typeof fetch = authFetch): Promise<void> {
   const res = await fetchFn(`${API}/sources/rtsp`, { method: "DELETE" });
   if (!res.ok) throw new Error(`DELETE /sources/rtsp -> ${res.status}`);
 }

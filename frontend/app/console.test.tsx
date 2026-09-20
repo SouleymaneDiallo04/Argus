@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import Page from "./page";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 
 beforeAll(() => {
   // jsdom n'a pas WebSocket : shim inerte pour que le Workspace (hook live) ne plante pas au montage.
@@ -17,9 +18,13 @@ beforeAll(() => {
   globalThis.fetch = (async () => ({ ok: true, status: 200, json: async () => ({ zones: [] }) })) as typeof fetch;
 });
 
-test("la console rend le shell + le sélecteur de source vidéo", () => {
-  render(<Page />);
-  expect(screen.getByRole("img", { name: /argus/i })).toBeInTheDocument(); // logo (NavRail)
+test("la console rend le shell + le sélecteur de source vidéo", async () => {
+  render(
+    <AuthProvider loadMe={async () => ({ username: "admin", role: "admin" })}>
+      <Page />
+    </AuthProvider>,
+  );
+  expect(await screen.findByRole("img", { name: /argus/i })).toBeInTheDocument(); // logo (NavRail)
   expect(screen.getByText(/Conformité · Site/i)).toBeInTheDocument(); // bandeau vital
   expect(screen.getByRole("button", { name: /webcam/i })).toBeInTheDocument(); // source vidéo (VideoStage)
 });

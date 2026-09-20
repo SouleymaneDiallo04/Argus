@@ -1,4 +1,4 @@
-import { API, qs } from "./http";
+import { API, qs, authFetch } from "./http";
 import type { AlertStatus } from "@/components/ui/StatusBadge";
 
 export type ApiEvent = {
@@ -19,7 +19,7 @@ export async function getEvents(
 }
 
 export async function setEventStatus(
-  id: number, status: AlertStatus, fetchFn: typeof fetch = fetch,
+  id: number, status: AlertStatus, fetchFn: typeof fetch = authFetch,
 ): Promise<void> {
   const res = await fetchFn(`${API}/events/${id}/status`, {
     method: "POST",
