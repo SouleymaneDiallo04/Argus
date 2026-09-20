@@ -61,6 +61,11 @@ class StatusUpdate(BaseModel):
     status: str
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 def _detection_to_dict(d: Detection) -> dict:
     return {"cls": d.cls, "bbox": [d.bbox.x1, d.bbox.y1, d.bbox.x2, d.bbox.y2],
             "confidence": d.confidence, "track_id": d.track_id}

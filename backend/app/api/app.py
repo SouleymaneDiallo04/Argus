@@ -4,15 +4,19 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import ValidationError
 
 from app.api.decode import decode_frame
-from app.api.schemas import FrameMessage, RtspSource, StatusUpdate, ZonesConfig, frame_response
+from app.api.schemas import (
+    FrameMessage, LoginRequest, RtspSource, StatusUpdate, ZonesConfig, frame_response)
 from app.api.zones_store import ZonesStore
+from app.auth.deps import current_user, require_role
+from app.auth.tokens import encode_token
+from app.auth.users import User, UserStore
 from app.ingest.frame_sink import ingest_frame
 from app.ingest.rtsp_worker import RtspWorker
 from app.pipeline import FramePipeline
@@ -40,6 +44,8 @@ def create_app() -> FastAPI:
             from app.notify.factory import build_dispatcher
 
             app.state.notifier = build_dispatcher()
+        if app.state.user_store is None:
+            app.state.user_store = UserStore.from_env(os.environ)
         yield
 
     app = FastAPI(title="Argus", lifespan=lifespan)
@@ -58,11 +64,28 @@ def create_app() -> FastAPI:
     app.state.notifier = None            # remplacé par un dispatcher espion dans les tests
     app.state.rtsp = None                # worker RTSP courant (un seul flux)
     app.state.rtsp_capture_factory = None  # None -> cv2.VideoCapture ; injecté en test
+    app.state.jwt_secret = os.environ.get("ARGUS_JWT_SECRET")
+    app.state.user_store = None          # UserStore.from_env au lifespan ; injecté en test
     app.state.decode = decode_frame
 
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok", "model_loaded": app.state.detector is not None}
+
+    @app.post("/auth/login")
+    def login(body: LoginRequest) -> dict:
+        store = app.state.user_store
+        if store is None:
+            raise HTTPException(status_code=400, detail="auth non configurée")
+        user = store.authenticate(body.username, body.password)
+        if user is None:
+            raise HTTPException(status_code=401, detail="identifiants invalides")
+        token = encode_token(user.username, user.role, app.state.jwt_secret)
+        return {"access_token": token, "token_type": "bearer", "role": user.role}
+
+    @app.get("/auth/me")
+    def auth_me(user: User = Depends(current_user)) -> dict:
+        return {"username": user.username, "role": user.role}
 
     @app.get("/zones")
     def get_zones() -> ZonesConfig:
