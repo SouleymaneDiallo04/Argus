@@ -5,3 +5,4 @@ fastapi
 uvicorn[standard]
 lap  # dépendance ByteTrack (tracking) ; sinon ultralytics l'auto-installe
 reportlab  # génération des rapports PDF (P3-d)
+pyjwt
