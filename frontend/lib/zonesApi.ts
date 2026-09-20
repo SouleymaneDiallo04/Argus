@@ -1,3 +1,5 @@
+import { authFetch } from "./http";
+
 export type ApiZone = { name: string; polygon: [number, number][]; required_ppe: string[] };
 type ZonesConfig = { zones: ApiZone[] };
 
@@ -10,7 +12,7 @@ export async function getZones(fetchFn: typeof fetch = fetch): Promise<ApiZone[]
   return data.zones ?? [];
 }
 
-export async function putZones(zones: ApiZone[], fetchFn: typeof fetch = fetch): Promise<void> {
+export async function putZones(zones: ApiZone[], fetchFn: typeof fetch = authFetch): Promise<void> {
   const res = await fetchFn(`${API}/zones`, {
     method: "PUT",
     headers: { "content-type": "application/json" },

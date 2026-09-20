@@ -11,9 +11,11 @@ import { Roster } from "./Roster";
 import { AlertsPanel } from "./AlertsPanel";
 import { FilterBar } from "./FilterBar";
 import { MetricTile } from "@/components/ui/MetricTile";
+import { useAuth } from "@/components/auth/AuthProvider";
 import type { Alert } from "@/lib/types";
 
 export function Workspace() {
+  const { user } = useAuth();
   const { response, sendFrame, status } = useLiveStream();
   const [filters, setFilters] = useState<Filters>({});
   const [editing, setEditing] = useState(false);
@@ -35,7 +37,8 @@ export function Workspace() {
 
   return (
     <div className="grid min-h-0 grid-rows-[auto_1fr]">
-      <FilterBar filters={filters} onChange={setFilters} onEditZones={() => setEditing(true)} />
+      <FilterBar filters={filters} onChange={setFilters}
+                 onEditZones={user?.role === "admin" ? () => setEditing(true) : undefined} />
       <div className="grid min-h-0 grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] gap-3.5 overflow-hidden p-3.5">
         <div className="flex min-h-0 flex-col gap-3.5">
           <VideoStage

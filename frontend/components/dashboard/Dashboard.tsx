@@ -11,6 +11,7 @@ import { JournalTable } from "./JournalTable";
 import { DashboardFilters, type DashFilters } from "./DashboardFilters";
 import { RtspControl } from "./RtspControl";
 import { reportUrl } from "@/lib/reportsApi";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const REFRESH_MS = 15000;
 
@@ -52,6 +53,10 @@ export function Dashboard({
     }
   }, [loadStats, loadEvents]);
 
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const canAck = user?.role === "hse" || user?.role === "admin";
+
   const onSetStatus = useCallback(async (id: number, status: AlertStatus) => {
     try { await setEventStatus(id, status); await refresh(); } catch { /* ignore */ }
   }, [refresh]);
@@ -74,7 +79,7 @@ export function Dashboard({
 
   return (
     <div className="flex min-h-0 flex-col gap-3.5 overflow-y-auto p-3.5">
-      <RtspControl />
+      {isAdmin ? <RtspControl /> : null}
       <DashboardFilters filters={filters} onChange={setFilters} />
       <KpiRow stats={stats} lastUpdated={lastUpdated} />
       <div className="grid grid-cols-2 gap-3.5">
@@ -95,7 +100,7 @@ export function Dashboard({
             <a href={reportUrl("pdf", exportParams)} download className={exportLink}>PDF</a>
           </div>
         </div>
-        <JournalTable events={events} onSetStatus={onSetStatus} />
+        <JournalTable events={events} onSetStatus={canAck ? onSetStatus : undefined} />
       </section>
     </div>
   );
